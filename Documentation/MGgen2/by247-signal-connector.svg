@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 610" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>BY247 signal connector on the MG gen 2 charger, face view</title>
+  <rect width="960" height="610" rx="12" fill="#ffffff"/>
+
+  <text x="30" y="38" font-size="19" font-weight="600" fill="#1b1b1b">BY247 on the charger — looking straight at the header</text>
+  <text x="30" y="62" font-size="13" fill="#555555">Latches top and bottom, small H moulded bottom left, digits 4–1 down the left edge</text>
+
+  <!-- housing -->
+  <rect x="285" y="92" width="70" height="24" rx="4" fill="#1d1d1d"/>
+  <rect x="285" y="494" width="70" height="24" rx="4" fill="#1d1d1d"/>
+  <rect x="70" y="110" width="490" height="390" rx="30" fill="#1d1d1d"/>
+  <rect x="92" y="132" width="446" height="346" rx="18" fill="#2a2a2a"/>
+
+  <!-- four rows -->
+  <g fill="#3b3b3b">
+    <rect x="130" y="150" width="390" height="62" rx="6"/>
+    <rect x="130" y="232" width="390" height="62" rx="6"/>
+    <rect x="130" y="314" width="390" height="62" rx="6"/>
+    <rect x="130" y="396" width="390" height="62" rx="6"/>
+  </g>
+
+  <!-- moulded markings -->
+  <g font-size="15" fill="#b0b0b0" text-anchor="middle">
+    <text x="112" y="186">4</text>
+    <text x="112" y="268">3</text>
+    <text x="112" y="350">2</text>
+    <text x="112" y="432">1</text>
+    <text x="165" y="480" font-weight="600">H</text>
+  </g>
+
+  <!-- pins: two 1.5 mm (H, G) and six 0.64 mm (F..A) per row -->
+  <g fill="#d9c79c">
+    <rect x="151" y="174" width="28" height="14" rx="2"/>
+    <rect x="208" y="174" width="28" height="14" rx="2"/>
+    <rect x="280.5" y="176.5" width="9" height="9"/>
+    <rect x="324.5" y="176.5" width="9" height="9"/>
+    <rect x="368.5" y="176.5" width="9" height="9"/>
+    <rect x="412.5" y="176.5" width="9" height="9"/>
+    <rect x="456.5" y="176.5" width="9" height="9"/>
+    <rect x="500.5" y="176.5" width="9" height="9"/>
+
+    <rect x="151" y="256" width="28" height="14" rx="2"/>
+    <rect x="208" y="256" width="28" height="14" rx="2"/>
+    <rect x="280.5" y="258.5" width="9" height="9"/>
+    <rect x="324.5" y="258.5" width="9" height="9"/>
+    <rect x="368.5" y="258.5" width="9" height="9"/>
+    <rect x="412.5" y="258.5" width="9" height="9"/>
+    <rect x="456.5" y="258.5" width="9" height="9"/>
+    <rect x="500.5" y="258.5" width="9" height="9"/>
+
+    <rect x="151" y="338" width="28" height="14" rx="2"/>
+    <rect x="208" y="338" width="28" height="14" rx="2"/>
+    <rect x="280.5" y="340.5" width="9" height="9"/>
+    <rect x="324.5" y="340.5" width="9" height="9"/>
+    <rect x="368.5" y="340.5" width="9" height="9"/>
+    <rect x="412.5" y="340.5" width="9" height="9"/>
+    <rect x="456.5" y="340.5" width="9" height="9"/>
+    <rect x="500.5" y="340.5" width="9" height="9"/>
+
+    <rect x="151" y="420" width="28" height="14" rx="2"/>
+    <rect x="208" y="420" width="28" height="14" rx="2"/>
+    <rect x="280.5" y="422.5" width="9" height="9"/>
+    <rect x="324.5" y="422.5" width="9" height="9"/>
+    <rect x="368.5" y="422.5" width="9" height="9"/>
+    <rect x="412.5" y="422.5" width="9" height="9"/>
+    <rect x="456.5" y="422.5" width="9" height="9"/>
+    <rect x="500.5" y="422.5" width="9" height="9"/>
+  </g>
+
+  <!-- supply and both buses -->
+  <g fill="none" stroke-width="4">
+    <circle cx="165" cy="427" r="21" stroke="#e5484d"/>
+    <circle cx="222" cy="181" r="21" stroke="#2fbf71"/>
+    <circle cx="505" cy="181" r="14" stroke="#f59e0b"/>
+    <circle cx="461" cy="181" r="14" stroke="#f59e0b" stroke-dasharray="5 4"/>
+    <circle cx="417" cy="427" r="14" stroke="#3b82f6"/>
+    <circle cx="417" cy="345" r="14" stroke="#3b82f6" stroke-dasharray="5 4"/>
+  </g>
+
+  <!-- the other pins in MG's table -->
+  <g fill="none" stroke="#a3a3a3" stroke-width="2">
+    <circle cx="505" cy="345" r="11"/>
+    <circle cx="373" cy="263" r="11"/>
+    <circle cx="505" cy="263" r="11"/>
+    <circle cx="461" cy="263" r="11"/>
+    <circle cx="461" cy="345" r="11"/>
+    <circle cx="373" cy="345" r="11"/>
+  </g>
+
+  <!-- column letters: an aid, not on the part -->
+  <g font-size="14" fill="#8a8a8a" text-anchor="middle">
+    <text x="165" y="548">H</text>
+    <text x="222" y="548">G</text>
+    <text x="285" y="548">F</text>
+    <text x="329" y="548">E</text>
+    <text x="373" y="548">D</text>
+    <text x="417" y="548">C</text>
+    <text x="461" y="548">B</text>
+    <text x="505" y="548">A</text>
+  </g>
+  <text x="70" y="574" font-size="12" fill="#8a8a8a">Column letters count from the H; only the H is moulded on the header.</text>
+  <text x="70" y="594" font-size="12" fill="#8a8a8a">The mating Molex plug (64319-1211) is the mirror image of this view.</text>
+
+  <!-- legend -->
+  <g font-size="14" fill="#1b1b1b">
+    <rect x="600" y="130" width="40" height="34" rx="6" fill="#2a2a2a"/>
+    <circle cx="620" cy="147" r="10" fill="none" stroke="#e5484d" stroke-width="4"/>
+    <text x="654" y="144" font-weight="600">H1 · +12 V</text>
+    <text x="654" y="162" font-size="12" fill="#555555">bottom row, thick pin far left</text>
+
+    <rect x="600" y="182" width="40" height="34" rx="6" fill="#2a2a2a"/>
+    <circle cx="620" cy="199" r="10" fill="none" stroke="#2fbf71" stroke-width="4"/>
+    <text x="654" y="196" font-weight="600">G4 · ground</text>
+    <text x="654" y="214" font-size="12" fill="#555555">the only pin with continuity to the case</text>
+
+    <rect x="600" y="234" width="40" height="34" rx="6" fill="#2a2a2a"/>
+    <circle cx="620" cy="251" r="10" fill="none" stroke="#f59e0b" stroke-width="4"/>
+    <text x="654" y="248" font-weight="600">A4 · Hybrid CAN H</text>
+    <text x="654" y="266" font-size="12" fill="#555555">ChargerCan (chargemodes = MGgen2)</text>
+
+    <rect x="600" y="286" width="40" height="34" rx="6" fill="#2a2a2a"/>
+    <circle cx="620" cy="303" r="10" fill="none" stroke="#f59e0b" stroke-width="4" stroke-dasharray="5 4"/>
+    <text x="654" y="300" font-weight="600">B4 · Hybrid CAN L</text>
+    <text x="654" y="318" font-size="12" fill="#555555">29 kΩ to A4 unpowered: no termination</text>
+
+    <rect x="600" y="338" width="40" height="34" rx="6" fill="#2a2a2a"/>
+    <circle cx="620" cy="355" r="10" fill="none" stroke="#3b82f6" stroke-width="4"/>
+    <text x="654" y="352" font-weight="600">C1 · PT CAN H</text>
+    <text x="654" y="370" font-size="12" fill="#555555">DCDCCan (DCdc_Type = MGgen2)</text>
+
+    <rect x="600" y="390" width="40" height="34" rx="6" fill="#2a2a2a"/>
+    <circle cx="620" cy="407" r="10" fill="none" stroke="#3b82f6" stroke-width="4" stroke-dasharray="5 4"/>
+    <text x="654" y="404" font-weight="600">C2 · PT CAN L</text>
+    <text x="654" y="422" font-size="12" fill="#555555">never the same bus as A4/B4</text>
+
+    <rect x="600" y="442" width="40" height="34" rx="6" fill="#2a2a2a"/>
+    <circle cx="620" cy="459" r="8" fill="none" stroke="#a3a3a3" stroke-width="2"/>
+    <text x="654" y="456" font-weight="600">Not needed on the bench</text>
+    <text x="654" y="474" font-size="12" fill="#555555">A2 charging wake-up · D3 vehicle wake-up</text>
+    <text x="654" y="490" font-size="12" fill="#555555">A3 CP · B3 CC · B2/D2 charge port temp +/−</text>
+  </g>
+</svg>

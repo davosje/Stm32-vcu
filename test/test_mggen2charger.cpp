@@ -64,12 +64,20 @@ const uint8_t PILOT_STATIC = 0x64; // 100 %, no PWM yet   (1149 @ 2.19 s)
 const uint8_t PILOT_READY = 0x9A;  // bit 7 + 26 %       (1149 @ 8.89 s)
 const uint8_t PILOT_GONE = 0x80;   // bit 7, no duty     (1017 @ 125.41 s)
 
+// 0x324 D4 and D5 as captured on the bench
+const uint8_t TEMP_OVERSHOOT = 0x51; // 41 °C, 0.1 s after power-up
+const uint8_t TEMP_SETTLED = 0x3F;   // 23 °C, room temperature
+
 uint8_t pilot = 0;
 float dcAmps = 0;
+uint8_t temp = TEMP_SETTLED;
 
 void ChargerSends() {
   uint32_t data[2] = {0, 0};
   uint8_t *bytes = (uint8_t *)data;
+  bytes[3] = bytes[4] = temp;
+  charger.DecodeCAN(0x324, data);
+  data[0] = data[1] = 0;
   bytes[0] = pilot;
   charger.DecodeCAN(0x33B, data);
   data[0] = data[1] = 0;
@@ -99,6 +107,7 @@ void Reset() {
   bus.Forget();
   pilot = 0;
   dcAmps = 0;
+  temp = TEMP_SETTLED;
   Param::SetInt(Param::opmode, MOD_OFF);
   Param::SetFloat(Param::Voltspnt, 448.2f);
   Param::SetFloat(Param::Pwrspnt, 11000);
@@ -237,6 +246,22 @@ static void TestNoNewChargeWhileShuttingDown() {
   ASSERT(charger.ControlCharge(true, true)); // 6 s later it may start again
 }
 
+static void TestTemperatureWaitsUntilItHasSettled() {
+  Reset();
+  Param::SetFloat(Param::ChgTemp, 0);
+  temp = TEMP_OVERSHOOT;
+  Run(34);
+  ASSERT(Param::GetFloat(Param::ChgTemp) == 0); // still settling
+  temp = TEMP_SETTLED;
+  Run(1);
+  ASSERT(Param::GetFloat(Param::ChgTemp) == 23); // 3.5 s: published
+
+  Run(20, false); // the unit loses its 12 V
+  temp = TEMP_OVERSHOOT;
+  Run(1);
+  ASSERT(Param::GetFloat(Param::ChgTemp) == 23); // powered up again: wait
+}
+
 void MGgen2ChargerTest::RunTest() {
   TestSilentUntilTheChargerSpeaks();
   TestWakesButDoesNotChargeWithoutPwm();
@@ -247,4 +272,5 @@ void MGgen2ChargerTest::RunTest() {
   TestDoesNotHoldWhenHighVoltageIsAlreadyDown();
   TestStopsWhenThePilotGoes();
   TestNoNewChargeWhileShuttingDown();
+  TestTemperatureWaitsUntilItHasSettled();
 }

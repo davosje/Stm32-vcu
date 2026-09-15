@@ -47,6 +47,7 @@ static const uint8_t STOP_PULSE_TICKS = 9;    // 0.9 s stop request
 static const uint8_t STOP_TIMEOUT_TICKS = 30; // stop waiting after 3 s
 static const uint8_t SHUTDOWN_TICKS = 60;     // 6 s of HV_SHUTDOWN
 static const uint16_t REST_TICKS = 1000;      // 100 s of rest frames
+static const uint8_t TEMP_SETTLE_TICKS = 35;  // 3.5 s before 0x324 temps hold
 
 static const float MAX_DC_AMPS = 51.1f;    // what the car always asks for
 static const float STOPPED_AMPS = 1.0f;    // below this, contactors may open
@@ -65,6 +66,7 @@ void MGgen2Charger::DeInit() {
   phaseTicks = 0;
   restTicks = 0;
   silentTicks = UINT8_MAX;
+  talkTicks = 0;
   wantCharge = false;
   currentCounts = 0;
   modeRamp = 0;
@@ -75,6 +77,7 @@ void MGgen2Charger::DecodeCAN(int id, uint32_t data[2]) {
   switch (id) {
   case ID_STATUS:
     silentTicks = 0;
+    chargerTemp = ChargerTemp(bytes);
     break;
   case ID_PILOT:
     silentTicks = 0;
@@ -140,6 +143,10 @@ void MGgen2Charger::Task10Ms() {
 void MGgen2Charger::Task100Ms() {
   if (silentTicks < UINT8_MAX)
     silentTicks++;
+  if (!Alive())
+    talkTicks = 0;
+  else if (talkTicks < UINT8_MAX)
+    talkTicks++;
   int opmode = Param::GetInt(Param::opmode);
   UpdatePhase(opmode);
   Publish();
@@ -266,6 +273,10 @@ void MGgen2Charger::Publish() {
   // AC_Volts and AC_Amps are one value each; they show phase L1.
   Param::SetFloat(Param::AC_Volts, acVolts[0]);
   Param::SetFloat(Param::AC_Amps, acAmps[0]);
+  // Right after power-up the temperatures are still settling (bench capture,
+  // Documentation/MGgen2): leave ChgTemp alone until they are real.
+  if (talkTicks >= TEMP_SETTLE_TICKS)
+    Param::SetFloat(Param::ChgTemp, chargerTemp);
 }
 
 bool MGgen2Charger::Alive() const { return silentTicks < ALIVE_TICKS; }

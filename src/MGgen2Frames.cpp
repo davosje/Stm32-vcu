@@ -82,6 +82,7 @@ static const uint8_t PILOT_PWM_MIN = 8;
 static const uint8_t PILOT_PWM_MAX = 97;
 
 static const float HV_VOLTS_PER_COUNT = 0.02f; // 0x324 D2:D3
+static const int TEMP_OFFSET = 40;             // 0x324 D4, D5, in °C
 static const float AMPS_PER_COUNT_33D = 0.1f;  // 0x33D D7
 static const float AMPS_PER_COUNT_491 = 0.2f;  // 0x491, derived, not calibrated
 static const float VOLTS_PER_COUNT_491 = 2.0f; // 0x491
@@ -288,6 +289,11 @@ uint8_t ChargerMode(const uint8_t *frame324) { return frame324[0]; }
 
 float HvVolts(const uint8_t *frame324) {
   return ((frame324[1] << 8) | frame324[2]) * HV_VOLTS_PER_COUNT;
+}
+
+float ChargerTemp(const uint8_t *frame324) {
+  int hottest = frame324[3] > frame324[4] ? frame324[3] : frame324[4];
+  return hottest - TEMP_OFFSET;
 }
 
 bool PilotReady(const uint8_t *frame33B) {

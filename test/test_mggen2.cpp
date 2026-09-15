@@ -24,6 +24,9 @@
  *
  *   1149 = "1149_3-phase 16A charge session.csv"   (ignition on)
  *   1017 = "1017_1-phase 6A charge session.csv"    (ignition off)
+ *
+ * Frames marked "bench" come from the charger alone on 12 V instead:
+ * Documentation/MGgen2/bench-2026-09-15-hybrid-a.log.
  */
 
 #include "MGgen2Frames.h"
@@ -258,6 +261,14 @@ static void TestChargerStatusDecodes() {
   const uint8_t f324[8] = {0x30, 0x4F, 0xB0, 0x4B, 0x48, 0x00, 0x00, 0x1E};
   ASSERT(ChargerMode(f324) == CHARGER_AC); // 1149, 3 x 16 A
   ASSERT(Near(HvVolts(f324), 408.0f));
+  ASSERT(Near(ChargerTemp(f324), 35.0f)); // D4 0x4B, D5 0x48
+}
+
+static void TestChargerTemperatureOffset() {
+  const uint8_t settled[8] = {0x00, 0x00, 0x00, 0x3F, 0x3F, 0x00, 0x00, 0x00};
+  const uint8_t overshoot[8] = {0x00, 0x00, 0x00, 0x28, 0x51, 0x00, 0x00, 0x00};
+  ASSERT(Near(ChargerTemp(settled), 23.0f));   // bench @ 3.3 s, room temp
+  ASSERT(Near(ChargerTemp(overshoot), 41.0f)); // bench @ 0.1 s, the hotter
 }
 
 static void TestPilotDecodes() {
@@ -358,6 +369,7 @@ void MGgen2Test::RunTest() {
   Test297PTMatchesCar();
   Test29BPTMatchesCar();
   TestChargerStatusDecodes();
+  TestChargerTemperatureOffset();
   TestPilotDecodes();
   TestPilotAmpsFollowsIec61851();
   TestDcCurrentDecodes();

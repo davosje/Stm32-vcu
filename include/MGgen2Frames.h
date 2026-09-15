@@ -40,9 +40,19 @@
  * 0x297, 0x29B and 0x39B exist on both buses with different payloads, so the
  * two buses must not be joined.
  *
- * BY247 is the 32-way LV connector of the 11 kW unit (rows A to H). The
- * 12-way BY400 found in older notes belongs to the 6.6 kW charger without a
- * DC-DC converter and has a different pinout.
+ * BY247 is the 32-way LV connector of the 11 kW unit. Pins from MG's table,
+ * checked on a unit on the bench (2026-09-15):
+ *
+ *   H1  +12 V        A4/B4  Hybrid CAN H/L    A2     charging wake-up
+ *   G4  ground       C1/C2  PT CAN H/L        D3     vehicle wake-up
+ *                    A3/B3  CP/CC             B2/D2  charge port temp sensor
+ *
+ * The unit terminates neither bus: 29 kOhm between A4 and B4. How to find
+ * the pins, the HV connectors and what the unit does on 12 V alone:
+ * Documentation/MGgen2/README.md.
+ *
+ * The 12-way BY400 found in older notes belongs to the 6.6 kW charger without
+ * a DC-DC converter and has a different pinout.
  */
 
 #include <stdint.h>
@@ -138,6 +148,11 @@ void Build29BPT(uint8_t *out, PackStage stage);
 /* Sent by the charger. */
 uint8_t ChargerMode(const uint8_t *frame324);
 float HvVolts(const uint8_t *frame324);
+/* The hotter of the two temperatures in 0x324 D4 and D5, in °C. Both carry an
+ * offset of 40: on the bench an idle unit at room temperature settles on 0x3F
+ * (23 °C), and in the car they read 0x3B to 0x42 at rest and up to 0x4C
+ * after two minutes at 10 kW. */
+float ChargerTemp(const uint8_t *frame324);
 bool PilotReady(const uint8_t *frame33B);
 uint8_t PilotDuty(const uint8_t *frame33B);
 float PilotAmps(uint8_t dutyPercent);

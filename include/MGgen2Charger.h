@@ -23,9 +23,9 @@
 /* MG ZS EV gen 2 on-board charger, AC charging side (hybrid CAN).
  *
  * Put this charger on the bus wired to its hybrid CAN pins (BY247 A4/B4),
- * set as ChargerCan. The DC-DC converter in the
- * same unit is on the PT bus and is a separate choice: DCdc_Type = MGgen2.
- * Byte layouts and where they come from: MGgen2Frames.h.
+ * set as ChargerCan. The DC-DC converter in the same unit is on the PT bus
+ * and is a separate choice: DCdc_Type = MGgen2. Byte layouts and where they
+ * come from: MGgen2Frames.h.
  *
  * How a charge runs:
  *
@@ -38,6 +38,15 @@
  *                 is held until the charger has let go of its current, so the
  *                 contactors never open under load
  *   ShuttingDown  6 s of HV shutdown state, then back to Standby
+ *
+ * Powered up with nothing else on the bus, the unit talks for 4.9 s and then
+ * falls silent (bench, 2026-09-15). That is enough to take this class out of
+ * Asleep. Whether our Standby frames then keep the unit awake is not tested
+ * yet.
+ *
+ * ChgTemp is the hotter of the two temperatures in 0x324, published once the
+ * charger has been talking for 3.5 s: after power-up one reading climbs from
+ * 0 °C and the other overshoots to 41 °C before both settle.
  *
  * The MG runs the AC pilot itself. A charge starts on the charger's own start
  * signal (0x33B bit 7 with a valid PWM duty), not on a charge interface: with
@@ -87,12 +96,14 @@ private:
   uint16_t restTicks = 0;
   uint8_t prechargeTicks = 0;
   uint8_t silentTicks = UINT8_MAX;
+  uint8_t talkTicks = 0;
   uint8_t ticks10 = 0;
   bool wantCharge = false;
 
   bool pilotReady = false;
   uint8_t pilotDuty = 0;
   float dcAmps = 0;
+  float chargerTemp = 0;
   float acAmps[3] = {0, 0, 0};
   float acVolts[3] = {0, 0, 0};
 
