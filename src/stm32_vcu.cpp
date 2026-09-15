@@ -38,6 +38,8 @@
 #include "JLR_G1.h"
 #include "JLR_G2.h"
 #include "MGCoolantHeater.h"
+#include "MGgen2Charger.h"
+#include "MGgen2DCDC.h"
 #include "NissanPDM.h"
 #include "NoInverter.h"
 #include "NoVehicle.h"
@@ -165,6 +167,7 @@ static noCharger nochg;
 static extCharger chgdigi;
 static amperaCharger ampChg;
 static outlanderCharger outChg;
+static MGgen2Charger MGgen2Chg;
 static FCChademo chademoFC;
 static i3LIMClass LIMFC;
 static CPCClass CPCcan;
@@ -199,6 +202,7 @@ static KangooBMS BMSRenaultKangoo33;
 static DCDC DCDCnone;
 static TeslaDCDC DCDCTesla;
 static ElconDCDC ElconDC;
+static MGgen2DCDC MGgen2DC;
 static BMS *selectedBMS = &BMSnone;
 static DCDC *selectedDCDC = &DCDCnone;
 static Can_OBD2 canOBD2;
@@ -669,7 +673,9 @@ static void Ms10Task(void) {
   selectedShifter->Task10Ms();
   if (opmode == MOD_CHARGE) {
     selectedCharger->Task10Ms();
-  } else if (Param::GetInt(Param::chargemodes) == ChargeModes::Leaf_PDM) {
+  } else if (Param::GetInt(Param::chargemodes) == ChargeModes::Leaf_PDM ||
+             Param::GetInt(Param::chargemodes) == ChargeModes::MGgen2) {
+    // The MG needs its 50 ms messages before charge mode, to wake up.
     selectedCharger->Task10Ms();
   }
   if (opmode == MOD_RUN)
@@ -980,6 +986,9 @@ static void UpdateCharger() {
   case ChargeModes::Elcon:
     selectedCharger = &ChargerElcon;
     break;
+  case ChargeModes::MGgen2:
+    selectedCharger = &MGgen2Chg;
+    break;
   }
   // This will call SetCanFilters() via the Clear Callback
   canInterface[0]->ClearUserMessages();
@@ -1079,6 +1088,9 @@ static void UpdateDCDC() {
 
   case DCDCModes::DCDCElcon:
     selectedDCDC = &ElconDC;
+    break;
+  case DCDCModes::DCDCMGgen2:
+    selectedDCDC = &MGgen2DC;
     break;
 
   default:

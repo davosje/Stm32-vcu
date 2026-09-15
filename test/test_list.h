@@ -28,8 +28,19 @@ public:
   virtual void RunTest();
 };
 
+class MGgen2Test : public IUnitTest {
+public:
+  virtual void RunTest();
+};
+
+class MGgen2ChargerTest : public IUnitTest {
+public:
+  virtual void RunTest();
+};
+
 #ifdef EXPORT_TESTLIST
-IUnitTest *testList[] = {new ThrottleTest(), NULL};
+IUnitTest *testList[] = {new ThrottleTest(), new MGgen2Test(),
+                         new MGgen2ChargerTest(), NULL};
 #endif
 
 #endif // TEST_LIST_H_INCLUDED
