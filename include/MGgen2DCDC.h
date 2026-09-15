@@ -22,7 +22,8 @@
 
 /* DC-DC converter inside the MG ZS EV gen 2 on-board charger (PT CAN).
  *
- * Put this on the bus the charger's PT pins (5/6) are wired to (DCDCCan),
+ * Put this on the bus wired to the charger's PT CAN pins (BY247 C1/C2),
+ * set as DCDCCan,
  * which must not be the bus of MGgen2Charger: see MGgen2Frames.h.
  *
  * The converter runs on one message, 0x19C every 10 ms. The PT copies of

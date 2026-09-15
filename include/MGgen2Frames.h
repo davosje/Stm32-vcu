@@ -34,11 +34,15 @@
  *
  * The unit is connected to two buses and needs both:
  *
- *   Hybrid CAN  (LV connector pins 3/4)  AC charging  -> MGgen2Charger
- *   PT CAN      (LV connector pins 5/6)  DC-DC        -> MGgen2DCDC
+ *   Hybrid CAN  (LV connector BY247, A4/B4)  AC charging  -> MGgen2Charger
+ *   PT CAN      (LV connector BY247, C1/C2)  DC-DC        -> MGgen2DCDC
  *
  * 0x297, 0x29B and 0x39B exist on both buses with different payloads, so the
  * two buses must not be joined.
+ *
+ * BY247 is the 32-way LV connector of the 11 kW unit (rows A to H). The
+ * 12-way BY400 found in older notes belongs to the 6.6 kW charger without a
+ * DC-DC converter and has a different pinout.
  */
 
 #include <stdint.h>

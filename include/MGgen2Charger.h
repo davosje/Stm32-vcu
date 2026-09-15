@@ -22,7 +22,8 @@
 
 /* MG ZS EV gen 2 on-board charger, AC charging side (hybrid CAN).
  *
- * Put this charger on its own bus (ChargerCan). The DC-DC converter in the
+ * Put this charger on the bus wired to its hybrid CAN pins (BY247 A4/B4),
+ * set as ChargerCan. The DC-DC converter in the
  * same unit is on the PT bus and is a separate choice: DCdc_Type = MGgen2.
  * Byte layouts and where they come from: MGgen2Frames.h.
  *
