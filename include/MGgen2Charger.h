@@ -39,10 +39,16 @@
  *                 contactors never open under load
  *   ShuttingDown  6 s of HV shutdown state, then back to Standby
  *
- * Powered up with nothing else on the bus, the unit talks for 4.9 s and then
- * falls silent (bench, 2026-09-15). That is enough to take this class out of
- * Asleep. Whether our Standby frames then keep the unit awake is not tested
- * yet.
+ * The unit only keeps talking while BY247 D3 (vehicle wake-up) is held at
+ * 12 V. Without that wire it sends 50 frames of each of its IDs over 4.9 s
+ * after power-up and then falls silent, whatever is on the bus: the standby
+ * frames of this class do not keep it awake (bench, 2026-09-16). The VCU
+ * therefore needs D3 high whenever the charger must answer -- switched 12 V,
+ * or an output from the IO matrix.
+ *
+ * With that wire fed, this class ran against a real unit for minutes on end:
+ * every frame acknowledged, the charger talking throughout, ChgTemp published.
+ * Charging itself is untested, for want of an EVSE on the pilot.
  *
  * ChgTemp is the hotter of the two temperatures in 0x324, published once the
  * charger has been talking for 3.5 s: after power-up one reading climbs from

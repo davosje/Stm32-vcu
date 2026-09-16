@@ -14,6 +14,14 @@ all: $(BINARY)
 $(BINARY): $(OBJS)
 	$(LD) $(LDFLAGS) -o $(BINARY) $(OBJS)
 
+# Linux-only bench tool: runs MGgen2Charger against a real charger over
+# SocketCAN. Not built by "all"; run "make mg_bench" when you need it.
+BENCH		= mg_bench
+BENCH_OBJS	= mg_bench.o my_string.o params.o MGgen2Frames.o canhardware.o MGgen2Charger.o
+
+$(BENCH): $(BENCH_OBJS)
+	$(LD) $(LDFLAGS) -o $(BENCH) $(BENCH_OBJS)
+
 %.o: ../%.cpp
 	$(CPP) $(CPPFLAGS) -o $@ -c $<
 
@@ -21,4 +29,4 @@ $(BINARY): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
-	rm -f $(OBJS) $(BINARY)
+	rm -f $(OBJS) $(BINARY) $(BENCH_OBJS) $(BENCH)

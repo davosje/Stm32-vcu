@@ -47,8 +47,12 @@
  *   G4  ground       C1/C2  PT CAN H/L        D3     vehicle wake-up
  *                    A3/B3  CP/CC             B2/D2  charge port temp sensor
  *
- * The unit terminates neither bus: 29 kOhm between A4 and B4. How to find
- * the pins, the HV connectors and what the unit does on 12 V alone:
+ * Two of those pins are not optional. D3 must be held at 12 V or the unit
+ * stops talking 4.9 s after power-up, and B2/D2 want 47-220 kOhm across them
+ * when no charge port is wired, or the unit flags a missing sensor in 0x3B7.
+ *
+ * The unit terminates neither bus: 29 kOhm across A4/B4 and across C1/C2. How
+ * to find the pins, the HV connectors and what the unit does on 12 V alone:
  * Documentation/MGgen2/README.md.
  *
  * The 12-way BY400 found in older notes belongs to the 6.6 kW charger without
