@@ -22,6 +22,13 @@ BENCH_OBJS	= mg_bench.o my_string.o params.o MGgen2Frames.o canhardware.o MGgen2
 $(BENCH): $(BENCH_OBJS)
 	$(LD) $(LDFLAGS) -o $(BENCH) $(BENCH_OBJS)
 
+# Same idea for the BMW i3 LIM: run i3LIMClass against a real LIM.
+LIMBENCH		= lim_bench
+LIMBENCH_OBJS	= lim_bench.o my_string.o params.o i3LIM.o canhardware.o
+
+$(LIMBENCH): $(LIMBENCH_OBJS)
+	$(LD) $(LDFLAGS) -o $(LIMBENCH) $(LIMBENCH_OBJS)
+
 %.o: ../%.cpp
 	$(CPP) $(CPPFLAGS) -o $@ -c $<
 
@@ -29,4 +36,4 @@ $(BENCH): $(BENCH_OBJS)
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
-	rm -f $(OBJS) $(BINARY) $(BENCH_OBJS) $(BENCH)
+	rm -f $(OBJS) $(BINARY) $(BENCH_OBJS) $(BENCH) $(LIMBENCH_OBJS) $(LIMBENCH)
