@@ -153,11 +153,13 @@ int main(int argc, char **argv) {
         for (int i = 0; i < heard[0x3B4].can_dlc; i++)
           printf("%02X", heard[0x3B4].data[i]);
       }
-      printf(" | state=%d cond=%d contactor=%d deur=%d plug=%d pilot=%d/%d",
+      printf(" | state=%d cond=%d contactor=%d deur=%d plug=%d pilot=%d/%d"
+             " inlaat=%dV ccs=%dV/%dA",
              Param::GetInt(Param::CCS_State), Param::GetInt(Param::CCS_COND),
              Param::GetInt(Param::CCS_Contactor), Param::GetInt(Param::CP_DOOR),
              Param::GetInt(Param::PlugDet), Param::GetInt(Param::PilotTyp),
-             Param::GetInt(Param::PilotLim));
+             Param::GetInt(Param::PilotLim), Param::GetInt(Param::CCS_V_Con),
+             Param::GetInt(Param::CCS_V), Param::GetInt(Param::CCS_I_Avail));
       if (bus.errors)
         printf(" | zendfouten=%d", bus.errors);
       printf("\n");
