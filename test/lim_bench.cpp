@@ -7,7 +7,11 @@
  *
  *   make lim_bench
  *
- * Run: ./lim_bench [seconds] [interface] [opmode] [udc]
+ * Run: ./lim_bench [seconds] [interface] [opmode] [udc] [run_after]
+ *
+ * run_after switches opmode to MOD_RUN after that many seconds. The LIM only
+ * starts its contactor test on an ignition change from off to on, so this
+ * gives it one without a gap on the bus.
  *
  * udc is the pack voltage we claim to have. The LIM checks it against what it
  * measures on the inlet, so it is the quickest way to see whether it is really
@@ -88,6 +92,7 @@ int main(int argc, char **argv) {
   const char *name = argc > 2 ? argv[2] : "can0";
   int opmode = argc > 3 ? atoi(argv[3]) : MOD_OFF;
   float udc = argc > 4 ? atof(argv[4]) : 0;
+  int runAfter = argc > 5 ? atoi(argv[5]) : -1;
   static SocketCan bus;
   static i3LIMClass lim;
 
@@ -126,6 +131,11 @@ int main(int argc, char **argv) {
       received[id]++;
       heard[id] = f;
       lim.DecodeCAN(id, data);
+    }
+
+    if (runAfter >= 0 && tick == runAfter * 100L) {
+      Param::SetInt(Param::opmode, MOD_RUN);
+      printf("---- contact aan (MOD_RUN) ----\n");
     }
 
     lim.Task10Ms();
