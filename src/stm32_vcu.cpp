@@ -897,6 +897,16 @@ static CanHardware::baudrates CanFdBaudrate() {
   }
 }
 
+/** Reset the message list of every interface, which makes each of them call
+ * SetCanFilters() through its clear callback, so the devices are wired to the
+ * buses their parameters name. Registering the same id twice is refused by
+ * RegisterUserMessage, so the repeated calls cost nothing. */
+static void ClearCanUserMessages() {
+  for (int i = 0; i < 3; i++)
+    if (canInterface[i] != 0)
+      canInterface[i]->ClearUserMessages();
+}
+
 static void Ms1Task(void) {
   if (canFd != 0)
     canFd->Poll(); // the FD chip has no interrupt line yet
@@ -943,8 +953,7 @@ static void UpdateInv() {
     break;
   }
   // This will call SetCanFilters() via the Clear Callback
-  canInterface[0]->ClearUserMessages();
-  canInterface[1]->ClearUserMessages();
+  ClearCanUserMessages();
 }
 
 static void UpdateVehicle() {
@@ -977,8 +986,7 @@ static void UpdateVehicle() {
     break;
   }
   // This will call SetCanFilters() via the Clear Callback
-  canInterface[0]->ClearUserMessages();
-  canInterface[1]->ClearUserMessages();
+  ClearCanUserMessages();
 }
 
 static void UpdateCharger() {
@@ -1012,8 +1020,7 @@ static void UpdateCharger() {
     break;
   }
   // This will call SetCanFilters() via the Clear Callback
-  canInterface[0]->ClearUserMessages();
-  canInterface[1]->ClearUserMessages();
+  ClearCanUserMessages();
 }
 
 static void UpdateChargeInt() {
@@ -1036,8 +1043,7 @@ static void UpdateChargeInt() {
     break;
   }
   // This will call SetCanFilters() via the Clear Callback
-  canInterface[0]->ClearUserMessages();
-  canInterface[1]->ClearUserMessages();
+  ClearCanUserMessages();
 }
 
 static void UpdateHeater() {
@@ -1066,8 +1072,7 @@ static void UpdateHeater() {
     break;
   }
   // This will call SetCanFilters() via the Clear Callback
-  canInterface[0]->ClearUserMessages();
-  canInterface[1]->ClearUserMessages();
+  ClearCanUserMessages();
 }
 
 static void UpdateBMS() {
@@ -1092,8 +1097,7 @@ static void UpdateBMS() {
     break;
   }
   // This will call SetCanFilters() via the Clear Callback
-  canInterface[0]->ClearUserMessages();
-  canInterface[1]->ClearUserMessages();
+  ClearCanUserMessages();
 }
 
 static void UpdateDCDC() {
@@ -1120,8 +1124,7 @@ static void UpdateDCDC() {
     break;
   }
   // This will call SetCanFilters() via the Clear Callback
-  canInterface[0]->ClearUserMessages();
-  canInterface[1]->ClearUserMessages();
+  ClearCanUserMessages();
 }
 
 static void UpdateShifter() {
@@ -1153,8 +1156,7 @@ static void UpdateShifter() {
     break;
   }
   // This will call SetCanFilters() via the Clear Callback
-  canInterface[0]->ClearUserMessages();
-  canInterface[1]->ClearUserMessages();
+  ClearCanUserMessages();
 }
 
 // Whenever the user clears mapped can messages or changes the
@@ -1224,8 +1226,7 @@ void Param::Change(Param::PARAM_NUM paramNum) {
   case Param::ShuntCan:
   case Param::LimCan:
   case Param::ChargerCan:
-    canInterface[0]->ClearUserMessages();
-    canInterface[1]->ClearUserMessages();
+    ClearCanUserMessages();
     break;
   case Param::CAN3Speed:
     CANSPI_Initialize(); // init the MCP25625 on CAN3
@@ -1235,8 +1236,12 @@ void Param::Change(Param::PARAM_NUM paramNum) {
     /* Switching it on takes effect at once; switching it off only after a
      * reset, so devices already mapped to it keep a working bus. */
     if (canFd != 0 && Param::GetInt(Param::CANFDSpeed) != 0 &&
-        canFd->Initialize(CanFdBaudrate()))
+        canFd->Initialize(CanFdBaudrate())) {
       canInterface[2] = canFd;
+      /* Devices that were already set to CANFD are still pointing at the
+       * stand-in, so they have to be handed their real bus. */
+      ClearCanUserMessages();
+    }
     break;
   case Param::Tim3_Presc:
   case Param::Tim3_Period:
@@ -1456,8 +1461,9 @@ int main(void) {
    * pin 9 of IC24 to PB13 or PC10 settles it.
    *
    * The chip select: it cannot be a pin the firmware already claims, which
-   * leaves PE0, PE1 and PE8 to PE13 as the only free pins on port E - right
-   * next to the two that already serve CAN3. PE13 is the guess below.
+   * leaves PE0, PE1, PE8 and PE10 to PE13 as the only free pins on port E -
+   * right next to the two that already serve CAN3. PE9 is not free, it is
+   * TIM1.CH1, the oil pump pwm. PE13 is the guess below.
    *
    * Until CANFDSpeed is set to something other than Off nothing here is
    * touched, so a wrong guess cannot disturb a working board.
@@ -1466,6 +1472,7 @@ int main(void) {
   Mcp2518Fd fd(canFdWiring);
 
   canFd = &fd;
+  fd.AddCallback(&cb); /* without this every received frame is just dropped */
   /* Never leave slot 2 empty: a device parameter left on CANFD while the chip
    * is off would dereference a null pointer. CAN1 is the harmless stand-in. */
   canInterface[2] = &c;
