@@ -84,7 +84,10 @@ private:
   void Deselect();
 
   Wiring wiring;
-  bool ready;
+  /* Doubles as the fence between the two contexts that talk to the chip: see
+   * the comment above ConfigureFilters in the .cpp. Written from the lower
+   * priority side, read from the 1 ms interrupt, so it must be volatile. */
+  volatile bool ready;
   uint8_t deviceId;
 };
 

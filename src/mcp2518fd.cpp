@@ -30,6 +30,12 @@
 
 /* Special function registers */
 #define REG_OSC 0xE00
+/* IOCON, 0xE04. Not written yet, and that may turn out to be wrong: the
+ * ATA6563 transceiver inside the MCP251863 pulls its own standby pin up, so a
+ * floating standby leaves the bus silent. Many designs tie that pin to the
+ * controller's GPIO0/INT0 instead of to the microcontroller, and then IOCON
+ * needs XSTBYEN set and TRIS0 cleared. Which it is here comes out of the same
+ * measurement as the SPI bus and the chip select. */
 #define REG_IOCON 0xE04
 #define REG_DEVID 0xE14
 
@@ -274,10 +280,12 @@ void Mcp2518Fd::SetBaudrate(enum baudrates baudrate) {
   if (!ready)
     return;
 
-  if (!EnterMode(MODE_CONFIG))
-    return;
-  WriteReg(REG_NBTCFG, CalcBitTiming(baudrate));
-  EnterMode(MODE_NORMAL_20B);
+  ready = false; /* the fence, see ConfigureFilters */
+
+  if (EnterMode(MODE_CONFIG)) {
+    WriteReg(REG_NBTCFG, CalcBitTiming(baudrate));
+    ready = EnterMode(MODE_NORMAL_20B);
+  }
 }
 
 /** Take everything and let the callbacks sort it out.
@@ -285,20 +293,45 @@ void Mcp2518Fd::SetBaudrate(enum baudrates baudrate) {
  * The chip has 32 filters, so per-id filtering is possible later. It buys
  * little here: a 500 kbit bus cannot outrun the poll loop, and CanMap and the
  * device drivers already decide per id what they want.
+ *
+ * THE FENCE. Two contexts talk to this chip over the same SPI. Poll() and
+ * Send() run in the 1 ms task, which is the TIM4 interrupt at priority 0, the
+ * highest on the board. ConfigureFilters() and SetBaudrate() are reached from
+ * Param::Change, in the main loop or in the CAN receive interrupt at 0xE0 -
+ * both of which TIM4 cuts straight through. A transfer that is cut in half
+ * leaves the chip select low and writes the tail of one command into the
+ * registers of the next: a filter that ends up disabled, or a mask that throws
+ * away ids, and nothing reports it.
+ *
+ * So the low priority side clears `ready` before it touches the bus. The
+ * interrupt side checks it and gives up its turn; the receive FIFO is sixteen
+ * deep and holds what arrives meanwhile. The other way round cannot happen:
+ * nothing preempts TIM4, so a transfer started there always runs to the end.
  */
 void Mcp2518Fd::ConfigureFilters() {
+  bool was = ready;
+
+  ready = false;
   WriteReg(REG_FLTCON(0), 0); /* disable while changing */
   WriteReg(REG_FLTOBJ(0), 0);
   WriteReg(REG_FLTMASK(0), 0); /* every bit "don't care" */
   WriteReg(REG_FLTCON(0), 0x80 | FIFO_RX);
+  ready = was;
 }
 
 void Mcp2518Fd::Send(uint32_t canId, uint32_t data[2], uint8_t len) {
   if (!ready)
     return;
 
-  if ((ReadReg(REG_FIFOSTA(FIFO_TX)) & FIFOSTA_NOTFULL_NOTEMPTY) == 0)
+  /* The fence again: Send is reached from the device tasks, which run in the
+   * same interrupt as Poll, but also from the terminal and from CanMap, which
+   * do not. See ConfigureFilters. */
+  ready = false;
+
+  if ((ReadReg(REG_FIFOSTA(FIFO_TX)) & FIFOSTA_NOTFULL_NOTEMPTY) == 0) {
+    ready = true;
     return; /* transmit FIFO full, drop like the other interfaces do */
+  }
 
   uint32_t ua = ReadReg(REG_FIFOUA(FIFO_TX));
   uint8_t obj[16];
@@ -327,6 +360,7 @@ void Mcp2518Fd::Send(uint32_t canId, uint32_t data[2], uint8_t len) {
 
   WriteBuf(RAM_START + ua, obj, 16);
   WriteByte(REG_FIFOCON(FIFO_TX) + FIFOCON_BYTE1, BYTE1_UINC | BYTE1_TXREQ);
+  ready = true;
 }
 
 void Mcp2518Fd::Poll() {
