@@ -25,6 +25,7 @@
 #include "BMW_E39.h"
 #include "BMW_E65.h"
 #include "CANSPI.h"
+#include "mcp2518fd.h"
 #include "CPC.h"
 #include "Can_OBD2.h"
 #include "Can_OI.h"
@@ -125,6 +126,7 @@ static bool chargeMode = false;
 static bool chargeModeDC = false;
 static bool ChgLck = false;
 static CanHardware *canInterface[3];
+static Mcp2518Fd *canFd; // fourth bus, IC24, off unless configured
 static CanMap *canMap;
 static CanSdo *canSdo;
 static ChargeModes targetCharger;
@@ -878,7 +880,26 @@ static void Ms10Task(void) {
         canInterface[Param::GetInt(Param::ShuntCan)]); // VW contactor box
 }
 
+/** Translate the CANFDSpeed parameter into a baud rate. Off never reaches
+ * this function: the caller checks for it first. */
+static CanHardware::baudrates CanFdBaudrate() {
+  switch (Param::GetInt(Param::CANFDSpeed)) {
+  case 1:
+    return CanHardware::Baud125;
+  case 2:
+    return CanHardware::Baud250;
+  case 4:
+    return CanHardware::Baud800;
+  case 5:
+    return CanHardware::Baud1000;
+  default:
+    return CanHardware::Baud500;
+  }
+}
+
 static void Ms1Task(void) {
+  if (canFd != 0)
+    canFd->Poll(); // the FD chip has no interrupt line yet
   selectedInverter->Task1Ms();
   selectedVehicle->Task1Ms();
   selectedCharger->Task1Ms();
@@ -1210,6 +1231,13 @@ void Param::Change(Param::PARAM_NUM paramNum) {
     CANSPI_Initialize(); // init the MCP25625 on CAN3
     CANSPI_ENRx_IRQ();   // init CAN3 Rx IRQ
     break;
+  case Param::CANFDSpeed:
+    /* Switching it on takes effect at once; switching it off only after a
+     * reset, so devices already mapped to it keep a working bus. */
+    if (canFd != 0 && Param::GetInt(Param::CANFDSpeed) != 0 &&
+        canFd->Initialize(CanFdBaudrate()))
+      canInterface[2] = canFd;
+    break;
   case Param::Tim3_Presc:
   case Param::Tim3_Period:
   case Param::Tim3_1_OC:
@@ -1417,6 +1445,29 @@ int main(void) {
 
   CANSPI_Initialize(); // init the MCP25625 on CAN3
   CANSPI_ENRx_IRQ();   // init CAN3 Rx IRQ
+
+  /* The fourth bus: the MCP2518FD inside IC24, on CONN3.
+   *
+   * EVERYTHING BOARD SPECIFIC IS IN THIS ONE STRUCT. Two of the three
+   * values still have to be confirmed against the V1.3 board, because the
+   * schematic pdf does not say which SPI the chip hangs on: SPI2 carries
+   * CAN3 (the MCP25625, chip select on PB12), SPI3 the digital pots. The
+   * standby pin may also be pulled down in hardware, in which case leave
+   * the port at zero.
+   *
+   * Until CANFDSpeed is set to something other than Off nothing is
+   * touched, so a wrong guess here cannot disturb a working board.
+   */
+  Mcp2518Fd::Wiring canFdWiring = {SPI3, GPIOC, GPIO9, 0, 0};
+  Mcp2518Fd fd(canFdWiring);
+
+  canFd = &fd;
+  /* Never leave slot 2 empty: a device parameter left on CANFD while the chip
+   * is off would dereference a null pointer. CAN1 is the harmless stand-in. */
+  canInterface[2] = &c;
+
+  if (Param::GetInt(Param::CANFDSpeed) != 0 && fd.Initialize(CanFdBaudrate()))
+    canInterface[2] = &fd;
 
   LinBus l(USART1, 19200);
   lin = &l;

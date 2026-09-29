@@ -38,9 +38,15 @@ public:
   virtual void RunTest();
 };
 
+class Mcp2518FdTest : public IUnitTest {
+public:
+  virtual void RunTest();
+};
+
 #ifdef EXPORT_TESTLIST
 IUnitTest *testList[] = {new ThrottleTest(), new MGgen2Test(),
-                         new MGgen2ChargerTest(), NULL};
+                         new MGgen2ChargerTest(), new Mcp2518FdTest(),
+                         NULL};
 #endif
 
 #endif // TEST_LIST_H_INCLUDED
