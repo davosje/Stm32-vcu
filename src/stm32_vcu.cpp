@@ -1448,17 +1448,21 @@ int main(void) {
 
   /* The fourth bus: the MCP2518FD inside IC24, on CONN3.
    *
-   * EVERYTHING BOARD SPECIFIC IS IN THIS ONE STRUCT. Two of the three
-   * values still have to be confirmed against the V1.3 board, because the
-   * schematic pdf does not say which SPI the chip hangs on: SPI2 carries
-   * CAN3 (the MCP25625, chip select on PB12), SPI3 the digital pots. The
-   * standby pin may also be pulled down in hardware, in which case leave
-   * the port at zero.
+   * EVERYTHING BOARD SPECIFIC IS IN THIS ONE STRUCT, and two of its values
+   * still have to be confirmed against the board.
    *
-   * Until CANFDSpeed is set to something other than Off nothing is
-   * touched, so a wrong guess here cannot disturb a working board.
+   * The bus: SPI2 carries CAN3 (the MCP25625, chip select PB12, standby
+   * PE14, interrupt PE15), SPI3 the digital pots. One continuity check from
+   * pin 9 of IC24 to PB13 or PC10 settles it.
+   *
+   * The chip select: it cannot be a pin the firmware already claims, which
+   * leaves PE0, PE1 and PE8 to PE13 as the only free pins on port E - right
+   * next to the two that already serve CAN3. PE13 is the guess below.
+   *
+   * Until CANFDSpeed is set to something other than Off nothing here is
+   * touched, so a wrong guess cannot disturb a working board.
    */
-  Mcp2518Fd::Wiring canFdWiring = {SPI3, GPIOC, GPIO9, 0, 0};
+  Mcp2518Fd::Wiring canFdWiring = {SPI3, GPIOE, GPIO13, 0, 0};
   Mcp2518Fd fd(canFdWiring);
 
   canFd = &fd;
