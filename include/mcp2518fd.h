@@ -73,6 +73,12 @@ public:
 
 private:
   void ConfigureFilters();
+  void ConfigureFiltersLocked();
+
+  /** Take the chip for the length of one sequence of transfers.
+   * \return false when another context is already talking to it */
+  bool Claim();
+  void Release();
 
   bool EnterMode(uint8_t mode);
   void WriteReg(uint16_t addr, uint32_t value);
@@ -84,10 +90,9 @@ private:
   void Deselect();
 
   Wiring wiring;
-  /* Doubles as the fence between the two contexts that talk to the chip: see
-   * the comment above ConfigureFilters in the .cpp. Written from the lower
-   * priority side, read from the 1 ms interrupt, so it must be volatile. */
-  volatile bool ready;
+  volatile bool ready;        //!< initialised and in normal mode
+  volatile bool busy;         //!< a sequence of transfers is running
+  volatile bool filtersDirty; //!< filters could not be written, retry in Poll
   uint8_t deviceId;
 };
 

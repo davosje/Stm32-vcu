@@ -19,6 +19,7 @@
 #include "mcp2518fd.h"
 
 #ifndef MCP2518FD_HOSTTEST
+#include <libopencm3/cm3/cortex.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/spi.h>
 #endif
@@ -90,7 +91,8 @@
 /* The crystal at X3. Everything about bit timing hangs on this number. */
 #define XTAL_HZ 16000000
 
-Mcp2518Fd::Mcp2518Fd(const Wiring &w) : wiring(w), ready(false), deviceId(0) {}
+Mcp2518Fd::Mcp2518Fd(const Wiring &w)
+    : wiring(w), ready(false), busy(false), filtersDirty(false), deviceId(0) {}
 
 /** Bit timing word for NBTCFG.
  *
@@ -141,6 +143,43 @@ static void ShortDelay(uint32_t loops) {
   for (volatile uint32_t i = 0; i < loops; i++)
     __asm__("nop");
 }
+
+/** THE LOCK. Four contexts talk to this chip over one SPI, and they can cut
+ * each other in half.
+ *
+ * Poll() and Send() run in the 1 ms task, which is the TIM4 interrupt at
+ * priority 0, the highest on the board. ConfigureFilters() and SetBaudrate()
+ * are reached through Param::Change, either from the main loop (terminal, or
+ * the SDO handling in main) or from the CAN receive interrupt at 0xE0 - and
+ * TIM4 cuts through both of those, while the CAN interrupt cuts through the
+ * main loop.
+ *
+ * Two things go wrong without a lock. A transfer cut in half leaves the chip
+ * select low and writes the tail of one command into the registers of the
+ * next, which quietly disables a filter or gives it a mask that throws ids
+ * away. And two Sends that interleave read the same free slot from FIFOUA,
+ * write over each other in the chip's RAM and then advance the queue twice.
+ *
+ * Masking interrupts for a whole transfer would also work, but the longest one
+ * is an 18 byte write to RAM: about 130 us at 1.125 MHz, which is a tenth of
+ * the scheduler's tick. So only the test and set is masked - a handful of
+ * instructions - and whoever finds the chip taken gives up its turn instead.
+ * That costs a poll or a frame, never a corrupted register.
+ */
+bool Mcp2518Fd::Claim() {
+  bool mine = false;
+
+  cm_disable_interrupts();
+  if (!busy) {
+    busy = true;
+    mine = true;
+  }
+  cm_enable_interrupts();
+
+  return mine;
+}
+
+void Mcp2518Fd::Release() { busy = false; }
 
 void Mcp2518Fd::Select() { gpio_clear(wiring.csPort, wiring.csPin); }
 
@@ -225,6 +264,9 @@ bool Mcp2518Fd::EnterMode(uint8_t mode) {
 bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
   ready = false;
 
+  if (!Claim())
+    return false;
+
   /* Chip select idles high; the SPI clock and data pins were set up with the
    * peripheral itself, in hwinit. */
   gpio_set(wiring.csPort, wiring.csPin);
@@ -253,11 +295,15 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
   }
 
   deviceId = ReadReg(REG_DEVID) & 0xFF;
-  if (deviceId == 0 || deviceId == 0xFF)
+  if (deviceId == 0 || deviceId == 0xFF) {
+    Release();
     return false; /* nothing answered on the bus */
+  }
 
-  if (!EnterMode(MODE_CONFIG))
+  if (!EnterMode(MODE_CONFIG)) {
+    Release();
     return false;
+  }
 
   WriteReg(REG_NBTCFG, CalcBitTiming(baudrate));
   WriteReg(REG_TSCON, 0); /* no timestamps, so receive objects stay 8 bytes */
@@ -267,25 +313,31 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
            ((uint32_t)(FIFO_TX_DEPTH - 1) << 24) | (1 << 7));
   WriteReg(REG_FIFOCON(FIFO_RX), ((uint32_t)(FIFO_RX_DEPTH - 1) << 24));
 
-  ConfigureFilters();
+  ConfigureFiltersLocked();
+  filtersDirty = false;
 
-  if (!EnterMode(MODE_NORMAL_20B))
+  if (!EnterMode(MODE_NORMAL_20B)) {
+    Release();
     return false;
+  }
 
   ready = true;
+  Release();
   return true;
 }
 
 void Mcp2518Fd::SetBaudrate(enum baudrates baudrate) {
-  if (!ready)
+  if (!ready || !Claim())
     return;
 
-  ready = false; /* the fence, see ConfigureFilters */
+  ready = false;
 
   if (EnterMode(MODE_CONFIG)) {
     WriteReg(REG_NBTCFG, CalcBitTiming(baudrate));
     ready = EnterMode(MODE_NORMAL_20B);
   }
+
+  Release();
 }
 
 /** Take everything and let the callbacks sort it out.
@@ -294,42 +346,41 @@ void Mcp2518Fd::SetBaudrate(enum baudrates baudrate) {
  * little here: a 500 kbit bus cannot outrun the poll loop, and CanMap and the
  * device drivers already decide per id what they want.
  *
- * THE FENCE. Two contexts talk to this chip over the same SPI. Poll() and
- * Send() run in the 1 ms task, which is the TIM4 interrupt at priority 0, the
- * highest on the board. ConfigureFilters() and SetBaudrate() are reached from
- * Param::Change, in the main loop or in the CAN receive interrupt at 0xE0 -
- * both of which TIM4 cuts straight through. A transfer that is cut in half
- * leaves the chip select low and writes the tail of one command into the
- * registers of the next: a filter that ends up disabled, or a mask that throws
- * away ids, and nothing reports it.
- *
- * So the low priority side clears `ready` before it touches the bus. The
- * interrupt side checks it and gives up its turn; the receive FIFO is sixteen
- * deep and holds what arrives meanwhile. The other way round cannot happen:
- * nothing preempts TIM4, so a transfer started there always runs to the end.
+ * Called with the chip already claimed. See Claim() for who can interrupt
+ * whom here.
  */
-void Mcp2518Fd::ConfigureFilters() {
-  bool was = ready;
-
-  ready = false;
+void Mcp2518Fd::ConfigureFiltersLocked() {
   WriteReg(REG_FLTCON(0), 0); /* disable while changing */
   WriteReg(REG_FLTOBJ(0), 0);
   WriteReg(REG_FLTMASK(0), 0); /* every bit "don't care" */
   WriteReg(REG_FLTCON(0), 0x80 | FIFO_RX);
-  ready = was;
+}
+
+/** Reached from RegisterUserMessage and ClearUserMessages, so from whichever
+ * context changed a parameter. If the chip is busy this cannot wait and it
+ * cannot spin either - the holder may be a lower priority context that will
+ * not run again until we return - so it leaves a note for Poll(), which comes
+ * round within the millisecond. */
+void Mcp2518Fd::ConfigureFilters() {
+  if (!Claim()) {
+    filtersDirty = true;
+    return;
+  }
+
+  ConfigureFiltersLocked();
+  filtersDirty = false;
+  Release();
 }
 
 void Mcp2518Fd::Send(uint32_t canId, uint32_t data[2], uint8_t len) {
   if (!ready)
     return;
 
-  /* The fence again: Send is reached from the device tasks, which run in the
-   * same interrupt as Poll, but also from the terminal and from CanMap, which
-   * do not. See ConfigureFilters. */
-  ready = false;
+  if (!Claim())
+    return; /* someone else is mid sequence; dropping beats corrupting */
 
   if ((ReadReg(REG_FIFOSTA(FIFO_TX)) & FIFOSTA_NOTFULL_NOTEMPTY) == 0) {
-    ready = true;
+    Release();
     return; /* transmit FIFO full, drop like the other interfaces do */
   }
 
@@ -360,22 +411,42 @@ void Mcp2518Fd::Send(uint32_t canId, uint32_t data[2], uint8_t len) {
 
   WriteBuf(RAM_START + ua, obj, 16);
   WriteByte(REG_FIFOCON(FIFO_TX) + FIFOCON_BYTE1, BYTE1_UINC | BYTE1_TXREQ);
-  ready = true;
+  Release();
 }
 
 void Mcp2518Fd::Poll() {
   if (!ready)
     return;
 
+  /* A filter write that had to give way earlier is settled here first. */
+  if (filtersDirty && Claim()) {
+    ConfigureFiltersLocked();
+    filtersDirty = false;
+    Release();
+  }
+
   for (int n = 0; n < POLL_BUDGET; n++) {
-    if ((ReadReg(REG_FIFOSTA(FIFO_RX)) & FIFOSTA_NOTFULL_NOTEMPTY) == 0)
+    uint8_t obj[16];
+
+    /* Claim per message, not for the whole round: HandleRx below runs the
+     * device callbacks, and one of those may want to answer over this very
+     * bus. Holding the chip across that call would drop its reply. Taking and
+     * giving back costs a handful of instructions; what has to stay in one
+     * piece is reading the free slot, reading the message and advancing the
+     * queue, and that is exactly what is wrapped here. */
+    if (!Claim())
       return;
 
+    if ((ReadReg(REG_FIFOSTA(FIFO_RX)) & FIFOSTA_NOTFULL_NOTEMPTY) == 0) {
+      Release();
+      return;
+    }
+
     uint32_t ua = ReadReg(REG_FIFOUA(FIFO_RX));
-    uint8_t obj[16];
 
     ReadBuf(RAM_START + ua, obj, 16);
     WriteByte(REG_FIFOCON(FIFO_RX) + FIFOCON_BYTE1, BYTE1_UINC);
+    Release();
 
     uint32_t id = obj[0] | (obj[1] << 8) | (obj[2] << 16) |
                   ((uint32_t)obj[3] << 24);
@@ -413,5 +484,8 @@ void Mcp2518Fd::SetBaudrate(enum baudrates) {}
 void Mcp2518Fd::Send(uint32_t, uint32_t[2], uint8_t) {}
 void Mcp2518Fd::Poll() {}
 void Mcp2518Fd::ConfigureFilters() {}
+void Mcp2518Fd::ConfigureFiltersLocked() {}
+bool Mcp2518Fd::Claim() { return false; }
+void Mcp2518Fd::Release() {}
 
 #endif // MCP2518FD_HOSTTEST
