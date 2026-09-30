@@ -88,7 +88,16 @@
  * without ever hogging the 1 ms task. */
 #define POLL_BUDGET 8
 
-/* The crystal at X3. Everything about bit timing hangs on this number. */
+/* The crystal at X3, read off the package: YXC 16.000. Everything about bit
+ * timing hangs on this number.
+ *
+ * Worth knowing: the datasheet lists 40, 20 and 4 MHz crystals, plus an
+ * external clock. 16 MHz is not on that menu, so this is Damien's choice and
+ * not Microchip's. For classic CAN it is ample - 500 kbit comes out at 32 time
+ * quanta - but it does mean the chip runs below the clock the manual
+ * recommends for flexible data rate. The bench settles it in a minute:
+ * Initialize() only reports success once the chip has actually reached normal
+ * mode, and it cannot do that with a dead oscillator. */
 #define XTAL_HZ 16000000
 
 Mcp2518Fd::Mcp2518Fd(const Wiring &w)
