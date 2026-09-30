@@ -25,8 +25,10 @@
  */
 
 #include "mcp2518fd.h"
-#include "test.h"
-#include <stdio.h>
+#include "test_list.h"
+#include <iostream>
+
+using namespace std;
 
 #define XTAL_HZ 16000000
 
