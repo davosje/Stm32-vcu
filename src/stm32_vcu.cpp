@@ -1453,23 +1453,25 @@ int main(void) {
 
   /* The fourth bus: the MCP2518FD inside IC24, on CONN3.
    *
-   * EVERYTHING BOARD SPECIFIC IS IN THIS ONE STRUCT.
+   * EVERYTHING BOARD SPECIFIC IS IN THIS ONE STRUCT, and all of it is measured
+   * on a V1.3 board, on 2026-09-30:
    *
-   * The bus is measured: pin 9 of IC24, its clock, runs to pin 52 of the
-   * STM32, which is PB13. So it shares SPI2 with the MCP25625 of CAN3 and not
-   * SPI3 with the digital pots. What that costs is written above
-   * Mcp2518Fd::Select.
+   *   pin 9  SCK   -> pin 52 of the STM32 = PB13, so SPI2
+   *   pin 13 CS    -> PE10
+   *   pin 5  STBY  -> PE12
    *
-   * The chip select is still a guess. It cannot be a pin the firmware already
-   * claims, which leaves PE0, PE1, PE8 and PE10 to PE13 as the only free pins
-   * on port E - right next to the two that already serve CAN3 (standby PE14,
-   * interrupt PE15), which is why PE13 is the guess. PE9 is not free: that is
-   * TIM1.CH1, the oil pump pwm. Pin 13 of IC24 against those five settles it.
+   * SPI2 means the chip shares its wires with the MCP25625 of CAN3. What that
+   * costs is written above Mcp2518Fd::Select.
    *
-   * Until CANFDSpeed is set to something other than Off nothing here is
-   * touched, so a wrong guess cannot disturb a working board.
+   * The standby landing on the microcontroller also answers a question the
+   * datasheet left open: the transceiver is switched by us, not by the
+   * controller's own pin, so IOCON needs nothing.
+   *
+   * Neither pin appears in digio_prj.h, so neither can be claimed by the IO
+   * matrix - which is what went wrong with the first guess, PC9, that turned
+   * out to be a shift solenoid.
    */
-  Mcp2518Fd::Wiring canFdWiring = {SPI2, GPIOE, GPIO13, 0, 0};
+  Mcp2518Fd::Wiring canFdWiring = {SPI2, GPIOE, GPIO10, GPIOE, GPIO12};
   Mcp2518Fd fd(canFdWiring);
 
   canFd = &fd;

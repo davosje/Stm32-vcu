@@ -32,12 +32,10 @@
 
 /* Special function registers */
 #define REG_OSC 0xE00
-/* IOCON, 0xE04. Not written yet, and that may turn out to be wrong: the
- * ATA6563 transceiver inside the MCP251863 pulls its own standby pin up, so a
- * floating standby leaves the bus silent. Many designs tie that pin to the
- * controller's GPIO0/INT0 instead of to the microcontroller, and then IOCON
- * needs XSTBYEN set and TRIS0 cleared. Which it is here comes out of the same
- * measurement as the SPI bus and the chip select. */
+/* IOCON, 0xE04. Deliberately never written. In many MCP251863 designs the
+ * transceiver's standby is tied to the controller's own pin and then IOCON
+ * needs XSTBYEN set and TRIS0 cleared, but on this board pin 5 runs to PE12:
+ * the microcontroller switches it, and the driver does that in Initialize. */
 #define REG_IOCON 0xE04
 #define REG_DEVID 0xE14
 
@@ -316,7 +314,10 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
   if (wiring.stbyPort != 0) {
     gpio_set_mode(wiring.stbyPort, GPIO_MODE_OUTPUT_50_MHZ,
                   GPIO_CNF_OUTPUT_PUSHPULL, wiring.stbyPin);
-    gpio_clear(wiring.stbyPort, wiring.stbyPin); /* transceiver awake */
+    /* Standby is active high on the ATA6563 half, so low is awake. If the
+     * bus turns out to be dead while the controller itself answers, this is
+     * the first line to doubt. */
+    gpio_clear(wiring.stbyPort, wiring.stbyPin);
   }
 
   /* Reset: the command word is sixteen zero bits. */
