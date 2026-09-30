@@ -1453,22 +1453,23 @@ int main(void) {
 
   /* The fourth bus: the MCP2518FD inside IC24, on CONN3.
    *
-   * EVERYTHING BOARD SPECIFIC IS IN THIS ONE STRUCT, and two of its values
-   * still have to be confirmed against the board.
+   * EVERYTHING BOARD SPECIFIC IS IN THIS ONE STRUCT.
    *
-   * The bus: SPI2 carries CAN3 (the MCP25625, chip select PB12, standby
-   * PE14, interrupt PE15), SPI3 the digital pots. One continuity check from
-   * pin 9 of IC24 to PB13 or PC10 settles it.
+   * The bus is measured: pin 9 of IC24, its clock, runs to pin 52 of the
+   * STM32, which is PB13. So it shares SPI2 with the MCP25625 of CAN3 and not
+   * SPI3 with the digital pots. What that costs is written above
+   * Mcp2518Fd::Select.
    *
-   * The chip select: it cannot be a pin the firmware already claims, which
-   * leaves PE0, PE1, PE8 and PE10 to PE13 as the only free pins on port E -
-   * right next to the two that already serve CAN3. PE9 is not free, it is
-   * TIM1.CH1, the oil pump pwm. PE13 is the guess below.
+   * The chip select is still a guess. It cannot be a pin the firmware already
+   * claims, which leaves PE0, PE1, PE8 and PE10 to PE13 as the only free pins
+   * on port E - right next to the two that already serve CAN3 (standby PE14,
+   * interrupt PE15), which is why PE13 is the guess. PE9 is not free: that is
+   * TIM1.CH1, the oil pump pwm. Pin 13 of IC24 against those five settles it.
    *
    * Until CANFDSpeed is set to something other than Off nothing here is
    * touched, so a wrong guess cannot disturb a working board.
    */
-  Mcp2518Fd::Wiring canFdWiring = {SPI3, GPIOE, GPIO13, 0, 0};
+  Mcp2518Fd::Wiring canFdWiring = {SPI2, GPIOE, GPIO13, 0, 0};
   Mcp2518Fd fd(canFdWiring);
 
   canFd = &fd;

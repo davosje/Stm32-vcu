@@ -20,6 +20,7 @@
 
 #ifndef MCP2518FD_HOSTTEST
 #include <libopencm3/cm3/cortex.h>
+#include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/spi.h>
 #endif
@@ -190,9 +191,39 @@ bool Mcp2518Fd::Claim() {
 
 void Mcp2518Fd::Release() { busy = false; }
 
-void Mcp2518Fd::Select() { gpio_clear(wiring.csPort, wiring.csPin); }
+/** Chip select, and with it the guard for the bus.
+ *
+ * Measured on 2026-09-30: pin 9 of IC24 runs to pin 52 of the STM32, so this
+ * chip sits on SPI2 - the same three wires as the MCP25625 of CAN3. That
+ * driver has no lock of its own and transfers from two places: the EXTI15
+ * interrupt, which is its receive line, and the 1 ms task, which is where the
+ * Ampera heater sends. Both run at priority 0 and would cut straight through a
+ * transfer of ours started in the main loop, leaving two chips with half a
+ * command each.
+ *
+ * So both are held off for the length of one transfer. The longest is the
+ * 18 byte write into the chip's RAM, about 130 us: a tick of the scheduler
+ * arrives that much late, and CAN3 keeps its frame, because at 500 kbit one
+ * takes 230 us and the MCP25625 buffers two.
+ *
+ * What this does not cover is the other direction: CANSPI_Initialize runs in
+ * the main loop when CAN3Speed changes, and our Poll in the 1 ms task would
+ * cut through that. It is a race that was already there before this driver -
+ * the heater sends from the same task - and closing it means putting the same
+ * two lines around the chip select of MCP2515.cpp. That is shared code, so it
+ * deserves its own commit.
+ */
+void Mcp2518Fd::Select() {
+  nvic_disable_irq(NVIC_TIM4_IRQ);
+  nvic_disable_irq(NVIC_EXTI15_10_IRQ);
+  gpio_clear(wiring.csPort, wiring.csPin);
+}
 
-void Mcp2518Fd::Deselect() { gpio_set(wiring.csPort, wiring.csPin); }
+void Mcp2518Fd::Deselect() {
+  gpio_set(wiring.csPort, wiring.csPin);
+  nvic_enable_irq(NVIC_EXTI15_10_IRQ);
+  nvic_enable_irq(NVIC_TIM4_IRQ);
+}
 
 void Mcp2518Fd::WriteReg(uint16_t addr, uint32_t value) {
   uint16_t cmd = INSTR_WRITE | (addr & 0x0FFF);
