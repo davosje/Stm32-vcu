@@ -64,8 +64,12 @@ public:
   /** Drain the receive FIFO. Call periodically. */
   void Poll();
 
-  /** Device id of the chip, for diagnosis. 0 means nothing answered. */
+  /** Low byte of DEVID, for diagnosis only: a working chip may read 0. */
   uint8_t GetDeviceId() const { return deviceId; }
+
+  /** OSC as last read during Initialize. 0 or 0xFFFFFFFF means nobody
+   * answered; bit 10 (OSCRDY) means the crystal runs. */
+  uint32_t GetOsc() const { return oscSeen; }
 
   /** How far the chip got. The numbers are what the web interface shows as
    * CANFDState, so they must stay in step with CANFDSTATE in param_prj.h. */
@@ -118,6 +122,7 @@ private:
   bool irqTim4Was;            //!< scheduler interrupt state before Select
   bool irqExtiWas;            //!< CAN3 receive state before Select
   uint8_t deviceId;
+  uint32_t oscSeen;
 };
 
 #endif // MCP2518FD_H

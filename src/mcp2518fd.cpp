@@ -58,6 +58,13 @@
 /* OSC */
 #define OSC_OSCRDY (1 << 10)
 
+/* What a register reads as when nobody is on the other end of the SPI: the
+ * input held low, or left floating high. The Linux driver uses exactly this
+ * test on OSC to decide there is no chip (mcp251xfd_reg_invalid). */
+static inline bool RegInvalid(uint32_t value) {
+  return value == 0 || value == 0xFFFFFFFF;
+}
+
 /* CON */
 #define CON_REQOP_SHIFT 24
 #define CON_REQOP_MASK (7 << 24)
@@ -106,7 +113,7 @@
 Mcp2518Fd::Mcp2518Fd(const Wiring &w)
     : wiring(w), ready(false), busy(false), filtersDirty(false),
       faulted(false), state(STATE_OFF), irqTim4Was(false), irqExtiWas(false),
-      deviceId(0) {}
+      deviceId(0), oscSeen(0) {}
 
 /** Bit timing word for NBTCFG.
  *
@@ -408,17 +415,31 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
 
   /* No PLL: the 16 MHz crystal is the system clock. */
   WriteReg(REG_OSC, 0);
+  uint32_t osc = 0;
   for (int i = 0; i < 50; i++) {
-    if (ReadReg(REG_OSC) & OSC_OSCRDY)
+    osc = ReadReg(REG_OSC);
+    if (!RegInvalid(osc) && (osc & OSC_OSCRDY))
       break;
     ShortDelay(1000);
   }
-
+  oscSeen = osc;
   deviceId = ReadReg(REG_DEVID) & 0xFF;
-  if (deviceId == 0 || deviceId == 0xFF) {
+
+  /* Whether anyone is there is judged on OSC, the way the Linux driver does
+   * it, and not on DEVID. Linux only prints DEVID, and working chips show up
+   * in its log as "MCP2518FD rev0.0" - a DEVID of zero. The first version of
+   * this check turned exactly that away, and reported a chip that was very
+   * likely fine as NoChip (bench board, 2026-10-03). */
+  if (RegInvalid(osc)) {
     state = STATE_NOCHIP;
     Release();
     return false; /* nothing answered on the bus */
+  }
+
+  if (!(osc & OSC_OSCRDY)) {
+    state = STATE_NOMODE;
+    Release();
+    return false; /* it answers, but the crystal did not start */
   }
 
   if (!EnterMode(MODE_CONFIG)) {

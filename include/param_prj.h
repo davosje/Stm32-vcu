@@ -269,9 +269,11 @@
   VALUE_ENTRY(DMA_RxTimeout, "", 2121)                                         \
   VALUE_ENTRY(DMA_ConsecFail, "", 2122)                                        \
   VALUE_ENTRY(HTM_State, "", 2123)                                             \
-  VALUE_ENTRY(CANFDState, CANFDSTATE, 2124)
+  VALUE_ENTRY(CANFDState, CANFDSTATE, 2124)                                    \
+  VALUE_ENTRY(CANFDOsc, "", 2125)                                              \
+  VALUE_ENTRY(CANFDDevId, "", 2126)
 
-// Next value Id: 2125
+// Next value Id: 2127
 
 // Dead params
 /*

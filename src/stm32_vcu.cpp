@@ -379,8 +379,13 @@ static void Ms100Task(void) {
   iwdg_reset();
   /* Read here rather than where the chip is started, so a fault that comes
    * later, in the middle of running, shows up as well. */
-  if (canFd != 0)
+  if (canFd != 0) {
     Param::SetInt(Param::CANFDState, canFd->GetState());
+    /* The raw readings behind that state: the low half of OSC (0 or 65535 is
+     * nobody there, 1024 and up has the crystal running) and DEVID. */
+    Param::SetInt(Param::CANFDOsc, canFd->GetOsc() & 0xFFFF);
+    Param::SetInt(Param::CANFDDevId, canFd->GetDeviceId());
+  }
   float cpuLoad = scheduler->GetCpuLoad() / 10.0f;
   Param::SetFloat(Param::cpuload, cpuLoad);
   Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
