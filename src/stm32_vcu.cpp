@@ -377,6 +377,10 @@ static void Ms200Task(void) {
 static void Ms100Task(void) {
   DigIo::led_out.Toggle();
   iwdg_reset();
+  /* Read here rather than where the chip is started, so a fault that comes
+   * later, in the middle of running, shows up as well. */
+  if (canFd != 0)
+    Param::SetInt(Param::CANFDState, canFd->GetState());
   float cpuLoad = scheduler->GetCpuLoad() / 10.0f;
   Param::SetFloat(Param::cpuload, cpuLoad);
   Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());

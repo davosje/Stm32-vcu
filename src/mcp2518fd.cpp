@@ -105,7 +105,8 @@
 
 Mcp2518Fd::Mcp2518Fd(const Wiring &w)
     : wiring(w), ready(false), busy(false), filtersDirty(false),
-      faulted(false), irqTim4Was(false), irqExtiWas(false), deviceId(0) {}
+      faulted(false), state(STATE_OFF), irqTim4Was(false), irqExtiWas(false),
+      deviceId(0) {}
 
 /** Bit timing word for NBTCFG.
  *
@@ -410,11 +411,13 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
 
   deviceId = ReadReg(REG_DEVID) & 0xFF;
   if (deviceId == 0 || deviceId == 0xFF) {
+    state = STATE_NOCHIP;
     Release();
     return false; /* nothing answered on the bus */
   }
 
   if (!EnterMode(MODE_CONFIG)) {
+    state = STATE_NOMODE;
     Release();
     return false;
   }
@@ -426,6 +429,7 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
   uint32_t timing = CalcBitTiming(baudrate);
   WriteReg(REG_NBTCFG, timing);
   if (ReadReg(REG_NBTCFG) != timing) {
+    state = STATE_NOMODE;
     Release();
     return false;
   }
@@ -441,10 +445,12 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
   filtersDirty = false;
 
   if (!EnterMode(MODE_NORMAL_20B)) {
+    state = STATE_NOMODE;
     Release();
     return false;
   }
 
+  state = STATE_RUN;
   ready = true;
   Release();
   return true;
@@ -460,6 +466,7 @@ void Mcp2518Fd::SetBaudrate(enum baudrates baudrate) {
     WriteReg(REG_NBTCFG, CalcBitTiming(baudrate));
     ready = EnterMode(MODE_NORMAL_20B);
   }
+  state = ready ? STATE_RUN : STATE_NOMODE;
 
   Release();
 }

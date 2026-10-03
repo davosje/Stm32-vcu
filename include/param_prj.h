@@ -26,7 +26,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-// Next param id (increase when adding new parameter!): 157
+// Next param id (increase when adding new parameter!): 158
 /*              category     name         unit       min     max     default id
  */
 #define PARAM_LIST                                                             \
@@ -45,7 +45,7 @@
   PARAM_ENTRY(CAT_SETUP, ChargerCan, CAN_DEV, 0, 2, 1, 74)                     \
   PARAM_ENTRY(CAT_SETUP, BMSCan, CAN_DEV, 0, 2, 1, 89)                         \
   PARAM_ENTRY(CAT_SETUP, OBD2Can, CAN_DEV, 0, 2, 0, 96)                        \
-  PARAM_ENTRY(CAT_SETUP, CanMapCan, CAN_DEV, 0, 2, 0, 97)                      \
+  PARAM_ENTRY(CAT_SETUP, CanMapCan, CAN_BX, 0, 1, 0, 97)                      \
   PARAM_ENTRY(CAT_SETUP, DCDCCan, CAN_DEV, 0, 2, 1, 107)                       \
   PARAM_ENTRY(CAT_SETUP, HeaterCan, CAN_DEV, 0, 2, 1, 138)                     \
   PARAM_ENTRY(CAT_SETUP, MotActive, MotorsAct, 0, 3, 0, 129)                   \
@@ -268,9 +268,10 @@
   VALUE_ENTRY(DMA_TxComplete, ONOFF, 2120)                                     \
   VALUE_ENTRY(DMA_RxTimeout, "", 2121)                                         \
   VALUE_ENTRY(DMA_ConsecFail, "", 2122)                                        \
-  VALUE_ENTRY(HTM_State, "", 2123)
+  VALUE_ENTRY(HTM_State, "", 2123)                                             \
+  VALUE_ENTRY(CANFDState, CANFDSTATE, 2124)
 
-// Next value Id: 2124
+// Next value Id: 2125
 
 // Dead params
 /*
@@ -351,6 +352,10 @@
 #define TRNMODES "0=Manual, 1=Auto"
 #define CAT_AIRCON "Air Conditioning"
 #define CAN_DEV "0=CAN1, 1=CAN2, 2=CANFD"
+/* CanMap is built in main before the FD interface exists, and holds on to the
+ * bus it was given for good. So it gets the two on-chip buses only. */
+#define CAN_BX "0=CAN1, 1=CAN2"
+#define CANFDSTATE "0=Off, 1=Run, 2=NoChip, 3=NoMode, 4=SpiFault"
 #define CAT_THROTTLE "Throttle"
 #define CAT_POWER "Power Limit"
 #define CAT_CONTACT "Contactor Control"

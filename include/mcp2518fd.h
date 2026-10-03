@@ -67,6 +67,22 @@ public:
   /** Device id of the chip, for diagnosis. 0 means nothing answered. */
   uint8_t GetDeviceId() const { return deviceId; }
 
+  /** How far the chip got. The numbers are what the web interface shows as
+   * CANFDState, so they must stay in step with CANFDSTATE in param_prj.h. */
+  enum State {
+    STATE_OFF = 0,     //!< never started
+    STATE_RUN = 1,     //!< answered, read back what we wrote, normal mode
+    STATE_NOCHIP = 2,  //!< nothing answered: wiring, power or chip select
+    STATE_NOMODE = 3,  //!< it answered, but a register or a mode did not take
+    STATE_SPIFAULT = 4 //!< a transfer timed out; out of service until reset
+  };
+
+  /** A fault outranks whatever Initialize last found, because it can come
+   * later, in the middle of running. */
+  State GetState() const {
+    return faulted ? STATE_SPIFAULT : (State)state;
+  }
+
   /** Bit timing for a baud rate, given the crystal on the board.
    * Split out so it can be tested on a pc without the hardware. */
   static uint32_t CalcBitTiming(enum baudrates baudrate);
@@ -98,6 +114,7 @@ private:
   volatile bool busy;         //!< a sequence of transfers is running
   volatile bool filtersDirty; //!< filters could not be written, retry in Poll
   volatile bool faulted;      //!< the SPI stopped answering, out of service
+  volatile uint8_t state;     //!< a State, as far as Initialize got
   bool irqTim4Was;            //!< scheduler interrupt state before Select
   bool irqExtiWas;            //!< CAN3 receive state before Select
   uint8_t deviceId;
