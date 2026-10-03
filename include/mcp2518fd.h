@@ -89,10 +89,17 @@ private:
   void Select();
   void Deselect();
 
+  /** One byte over the SPI, with a bounded wait.
+   * \return the byte received, or 0xFF once the driver has faulted */
+  uint8_t Xfer(uint8_t out);
+
   Wiring wiring;
   volatile bool ready;        //!< initialised and in normal mode
   volatile bool busy;         //!< a sequence of transfers is running
   volatile bool filtersDirty; //!< filters could not be written, retry in Poll
+  volatile bool faulted;      //!< the SPI stopped answering, out of service
+  bool irqTim4Was;            //!< scheduler interrupt state before Select
+  bool irqExtiWas;            //!< CAN3 receive state before Select
   uint8_t deviceId;
 };
 

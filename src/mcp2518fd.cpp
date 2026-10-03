@@ -26,6 +26,10 @@
 #endif
 
 /* SPI instructions. The command word is instruction << 12 | address. */
+/* How long a single byte may take before the driver gives up on the SPI.
+ * See Mcp2518Fd::Xfer: a byte is a few hundred cycles, so this is generous. */
+#define XFER_GUARD 100000
+
 #define INSTR_RESET 0x0000
 #define INSTR_WRITE 0x2000
 #define INSTR_READ 0x3000
@@ -100,7 +104,8 @@
 #define XTAL_HZ 16000000
 
 Mcp2518Fd::Mcp2518Fd(const Wiring &w)
-    : wiring(w), ready(false), busy(false), filtersDirty(false), deviceId(0) {}
+    : wiring(w), ready(false), busy(false), filtersDirty(false),
+      faulted(false), irqTim4Was(false), irqExtiWas(false), deviceId(0) {}
 
 /** Bit timing word for NBTCFG.
  *
@@ -212,27 +217,91 @@ void Mcp2518Fd::Release() { busy = false; }
  * deserves its own commit.
  */
 void Mcp2518Fd::Select() {
+  irqTim4Was = nvic_get_irq_enabled(NVIC_TIM4_IRQ) != 0;
+  irqExtiWas = nvic_get_irq_enabled(NVIC_EXTI15_10_IRQ) != 0;
   nvic_disable_irq(NVIC_TIM4_IRQ);
   nvic_disable_irq(NVIC_EXTI15_10_IRQ);
+
+  /* CAN 3 shares this peripheral and leaves it as it pleases. A byte still
+   * sitting in the receive register would shift every answer of ours one place
+   * along, so the slate is wiped before chip select goes low. The register is
+   * one deep on this part; the count is there so this loop can be read without
+   * having to trust that. */
+  for (int i = 0; i < 4 && (SPI_SR(wiring.spi) & SPI_SR_RXNE); i++)
+    (void)SPI_DR(wiring.spi);
+
   gpio_clear(wiring.csPort, wiring.csPin);
 }
 
 void Mcp2518Fd::Deselect() {
   gpio_set(wiring.csPort, wiring.csPin);
-  nvic_enable_irq(NVIC_EXTI15_10_IRQ);
-  nvic_enable_irq(NVIC_TIM4_IRQ);
+
+  /* Put both interrupts back as they were found, not simply on. CAN 3 may
+   * legitimately be switched off, and switching its receive line on behind its
+   * back would arm an interrupt that nobody answers. */
+  if (irqExtiWas)
+    nvic_enable_irq(NVIC_EXTI15_10_IRQ);
+  if (irqTim4Was)
+    nvic_enable_irq(NVIC_TIM4_IRQ);
+
+  /* A transfer that timed out takes the bus out of service. Poll() and Send()
+   * then cost nothing and the rest of the board drives on. */
+  if (faulted)
+    ready = false;
+}
+
+/** One byte over the SPI, with a way out.
+ *
+ * This replaces libopencm3's spi_xfer, which waits on the receive flag in a
+ * while loop with no escape. That is the one place in this driver where the
+ * processor can stop for good, and it is not hypothetical: the peripheral is
+ * shared with the MCP25625 of CAN 3, which transfers without a lock of its
+ * own, and Select() holds off the scheduler for the length of a transfer. Lose
+ * one byte there and the board stands still with every lamp still lit - which
+ * is exactly the state the bench board was found in on 2026-10-03, after
+ * CANFDSpeed was switched on for the first time.
+ *
+ * So both waits are counted out. One byte takes 32 SPI clocks, and at the
+ * divider spi2_setup picks that is a few hundred processor cycles; the budget
+ * below is many times that for a healthy chip, and over in a blink for a dead
+ * one. The first time-out is final: faulted stays set, every later call
+ * returns at once, and Deselect() clears ready.
+ */
+uint8_t Mcp2518Fd::Xfer(uint8_t out) {
+  uint32_t guard;
+
+  if (faulted)
+    return 0xFF;
+
+  for (guard = XFER_GUARD; !(SPI_SR(wiring.spi) & SPI_SR_TXE); guard--) {
+    if (guard == 0) {
+      faulted = true;
+      return 0xFF;
+    }
+  }
+
+  SPI_DR(wiring.spi) = out;
+
+  for (guard = XFER_GUARD; !(SPI_SR(wiring.spi) & SPI_SR_RXNE); guard--) {
+    if (guard == 0) {
+      faulted = true;
+      return 0xFF;
+    }
+  }
+
+  return SPI_DR(wiring.spi) & 0xFF;
 }
 
 void Mcp2518Fd::WriteReg(uint16_t addr, uint32_t value) {
   uint16_t cmd = INSTR_WRITE | (addr & 0x0FFF);
 
   Select();
-  spi_xfer(wiring.spi, cmd >> 8);
-  spi_xfer(wiring.spi, cmd & 0xFF);
-  spi_xfer(wiring.spi, value & 0xFF);
-  spi_xfer(wiring.spi, (value >> 8) & 0xFF);
-  spi_xfer(wiring.spi, (value >> 16) & 0xFF);
-  spi_xfer(wiring.spi, (value >> 24) & 0xFF);
+  Xfer(cmd >> 8);
+  Xfer(cmd & 0xFF);
+  Xfer(value & 0xFF);
+  Xfer((value >> 8) & 0xFF);
+  Xfer((value >> 16) & 0xFF);
+  Xfer((value >> 24) & 0xFF);
   Deselect();
 }
 
@@ -241,10 +310,10 @@ uint32_t Mcp2518Fd::ReadReg(uint16_t addr) {
   uint32_t value = 0;
 
   Select();
-  spi_xfer(wiring.spi, cmd >> 8);
-  spi_xfer(wiring.spi, cmd & 0xFF);
+  Xfer(cmd >> 8);
+  Xfer(cmd & 0xFF);
   for (int i = 0; i < 4; i++)
-    value |= ((uint32_t)spi_xfer(wiring.spi, 0)) << (8 * i);
+    value |= ((uint32_t)Xfer(0)) << (8 * i);
   Deselect();
 
   return value;
@@ -254,9 +323,9 @@ void Mcp2518Fd::WriteByte(uint16_t addr, uint8_t value) {
   uint16_t cmd = INSTR_WRITE | (addr & 0x0FFF);
 
   Select();
-  spi_xfer(wiring.spi, cmd >> 8);
-  spi_xfer(wiring.spi, cmd & 0xFF);
-  spi_xfer(wiring.spi, value);
+  Xfer(cmd >> 8);
+  Xfer(cmd & 0xFF);
+  Xfer(value);
   Deselect();
 }
 
@@ -264,10 +333,10 @@ void Mcp2518Fd::WriteBuf(uint16_t addr, const uint8_t *buf, uint8_t len) {
   uint16_t cmd = INSTR_WRITE | (addr & 0x0FFF);
 
   Select();
-  spi_xfer(wiring.spi, cmd >> 8);
-  spi_xfer(wiring.spi, cmd & 0xFF);
+  Xfer(cmd >> 8);
+  Xfer(cmd & 0xFF);
   for (uint8_t i = 0; i < len; i++)
-    spi_xfer(wiring.spi, buf[i]);
+    Xfer(buf[i]);
   Deselect();
 }
 
@@ -275,10 +344,10 @@ void Mcp2518Fd::ReadBuf(uint16_t addr, uint8_t *buf, uint8_t len) {
   uint16_t cmd = INSTR_READ | (addr & 0x0FFF);
 
   Select();
-  spi_xfer(wiring.spi, cmd >> 8);
-  spi_xfer(wiring.spi, cmd & 0xFF);
+  Xfer(cmd >> 8);
+  Xfer(cmd & 0xFF);
   for (uint8_t i = 0; i < len; i++)
-    buf[i] = spi_xfer(wiring.spi, 0);
+    buf[i] = Xfer(0);
   Deselect();
 }
 
@@ -305,6 +374,10 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
   if (!Claim())
     return false;
 
+  /* A fresh attempt gets a fresh SPI. If the wiring was the problem and it has
+   * been put right, switching the parameter off and on is enough. */
+  faulted = false;
+
   /* Chip select idles high; the SPI clock and data pins were set up with the
    * peripheral itself, in hwinit. */
   gpio_set(wiring.csPort, wiring.csPin);
@@ -322,8 +395,8 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
 
   /* Reset: the command word is sixteen zero bits. */
   Select();
-  spi_xfer(wiring.spi, INSTR_RESET >> 8);
-  spi_xfer(wiring.spi, INSTR_RESET & 0xFF);
+  Xfer(INSTR_RESET >> 8);
+  Xfer(INSTR_RESET & 0xFF);
   Deselect();
   ShortDelay(20000);
 
@@ -346,7 +419,17 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
     return false;
   }
 
-  WriteReg(REG_NBTCFG, CalcBitTiming(baudrate));
+  /* Written and read back. A device id of its own is not proof: a floating
+   * input can read as anything. Only a register that gives back the value we
+   * just put in it says there is really a chip on the other end of those four
+   * wires, in config mode, and listening. */
+  uint32_t timing = CalcBitTiming(baudrate);
+  WriteReg(REG_NBTCFG, timing);
+  if (ReadReg(REG_NBTCFG) != timing) {
+    Release();
+    return false;
+  }
+
   WriteReg(REG_TSCON, 0); /* no timestamps, so receive objects stay 8 bytes */
 
   /* One transmit FIFO and one receive FIFO, both with an 8 byte payload. */
@@ -528,5 +611,6 @@ void Mcp2518Fd::ConfigureFilters() {}
 void Mcp2518Fd::ConfigureFiltersLocked() {}
 bool Mcp2518Fd::Claim() { return false; }
 void Mcp2518Fd::Release() {}
+uint8_t Mcp2518Fd::Xfer(uint8_t) { return 0xFF; }
 
 #endif // MCP2518FD_HOSTTEST
