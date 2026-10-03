@@ -258,9 +258,14 @@ void Mcp2518Fd::Deselect() {
  * processor can stop for good, and it is not hypothetical: the peripheral is
  * shared with the MCP25625 of CAN 3, which transfers without a lock of its
  * own, and Select() holds off the scheduler for the length of a transfer. Lose
- * one byte there and the board stands still with every lamp still lit - which
- * is exactly the state the bench board was found in on 2026-10-03, after
- * CANFDSpeed was switched on for the first time.
+ * one byte there and the board stands still with every lamp still lit, and
+ * since Initialize runs before the scheduler is started, the terminal and the
+ * web interface go with it.
+ *
+ * That has not been seen to happen. A bench board that seemed to hang on
+ * 2026-10-03 turned out to be fine: the setting had never been saved and the
+ * web interface had moved to another address. This is here because the wait
+ * had no way out, not because it was caught taking none.
  *
  * So both waits are counted out. One byte takes 32 SPI clocks, and at the
  * divider spi2_setup picks that is a few hundred processor cycles; the budget
