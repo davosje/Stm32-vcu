@@ -271,9 +271,11 @@
   VALUE_ENTRY(HTM_State, "", 2123)                                             \
   VALUE_ENTRY(CANFDState, CANFDSTATE, 2124)                                    \
   VALUE_ENTRY(CANFDOsc, "", 2125)                                              \
-  VALUE_ENTRY(CANFDDevId, "", 2126)
+  VALUE_ENTRY(CANFDDevId, "", 2126)                                            \
+  VALUE_ENTRY(CANFDTrail, "", 2127)                                            \
+  VALUE_ENTRY(ResetCause, RESETCAUSE, 2128)
 
-// Next value Id: 2127
+// Next value Id: 2129
 
 // Dead params
 /*
@@ -357,7 +359,8 @@
 /* CanMap is built in main before the FD interface exists, and holds on to the
  * bus it was given for good. So it gets the two on-chip buses only. */
 #define CAN_BX "0=CAN1, 1=CAN2"
-#define CANFDSTATE "0=Off, 1=Run, 2=NoChip, 3=NoMode, 4=SpiFault"
+#define CANFDSTATE "0=Off, 1=Run, 2=NoChip, 3=NoMode, 4=SpiFault, 5=Skipped"
+#define RESETCAUSE "1=Pin, 2=PowerOn, 4=Software, 8=Watchdog, 16=WinWatchdog, 32=LowPower"
 #define CAT_THROTTLE "Throttle"
 #define CAT_POWER "Power Limit"
 #define CAT_CONTACT "Contactor Control"

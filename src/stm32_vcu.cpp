@@ -106,6 +106,7 @@
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/iwdg.h>
+#include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/rtc.h>
 #include <libopencm3/stm32/spi.h>
 #include <libopencm3/stm32/timer.h>
@@ -1409,6 +1410,13 @@ int main(void) {
 
   clock_setup();
   rtc_setup();
+  /* What the last run left behind, read before anything can change it. The
+   * bootloader starts the watchdog at 2 s and leaves these flags alone, so a
+   * run that hung shows up here as a watchdog reset. rtc_setup has just
+   * switched on the backup domain that the trail lives in. */
+  uint32_t resetFlags = (RCC_CSR >> 26) & 0x3F;
+  RCC_CSR |= RCC_CSR_RMVF;
+  uint16_t fdTrail = Mcp2518Fd::TakeTrail();
   ConfigureVariantIO();
   gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_ON,
                      AFIO_MAPR_CAN2_REMAP |
@@ -1489,8 +1497,21 @@ int main(void) {
    * is off would dereference a null pointer. CAN1 is the harmless stand-in. */
   canInterface[2] = &c;
 
-  if (Param::GetInt(Param::CANFDSpeed) != 0 && fd.Initialize(CanFdBaudrate()))
-    canInterface[2] = &fd;
+  Param::SetInt(Param::ResetCause, resetFlags);
+  Param::SetInt(Param::CANFDTrail, fdTrail);
+
+  /* After a watchdog reset the chip is left alone for this boot, whatever the
+   * trail says. A start that hangs the board would otherwise do it again on
+   * every boot, and the web interface would never get a word in - which is
+   * what happened on the bench on 2026-10-03. Switching CANFDSpeed again
+   * starts it by hand; a power cycle starts it as usual. */
+  bool afterWatchdog = (resetFlags & 8) != 0;
+  if (Param::GetInt(Param::CANFDSpeed) != 0) {
+    if (afterWatchdog)
+      fd.Skip();
+    else if (fd.Initialize(CanFdBaudrate()))
+      canInterface[2] = &fd;
+  }
 
   LinBus l(USART1, 19200);
   lin = &l;

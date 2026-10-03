@@ -21,7 +21,9 @@
 #ifndef MCP2518FD_HOSTTEST
 #include <libopencm3/cm3/cortex.h>
 #include <libopencm3/cm3/nvic.h>
+#include <libopencm3/stm32/f1/bkp.h>
 #include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/pwr.h>
 #include <libopencm3/stm32/spi.h>
 #endif
 
@@ -163,6 +165,37 @@ uint32_t Mcp2518Fd::CalcBitTiming(enum baudrates baudrate) {
 static void ShortDelay(uint32_t loops) {
   for (volatile uint32_t i = 0; i < loops; i++)
     __asm__("nop");
+}
+
+/** THE TRAIL. A number in backup register DR1 that says where in this driver
+ * the processor is. Backup registers survive a watchdog reset, so when the
+ * board stops and the watchdog pulls it back up, the next boot can read where
+ * it was standing. It costs one register write per step.
+ *
+ *   11..17  Initialize: start, reset sent, oscillator, config mode,
+ *           read back and FIFOs, filters, normal mode requested
+ *   21..26  Poll: start, FIFO status, user address, message read,
+ *           queue advanced, handing the frame on
+ *   31      Send
+ *
+ * Nested use - Poll in the 1 ms interrupt cutting into an Initialize in the
+ * main loop - puts the outer number back on the way out, so the outer step is
+ * not lost. Outside the driver it reads 0. */
+static inline void Trail(uint16_t where) { BKP_DR1 = where; }
+
+namespace {
+struct TrailScope {
+  uint16_t outer;
+  TrailScope() : outer(BKP_DR1 & 0xFFFF) {}
+  ~TrailScope() { BKP_DR1 = outer; }
+};
+} // namespace
+
+uint16_t Mcp2518Fd::TakeTrail() {
+  pwr_disable_backup_domain_write_protect();
+  uint16_t last = BKP_DR1 & 0xFFFF;
+  BKP_DR1 = 0;
+  return last;
 }
 
 /** THE LOCK. Four contexts talk to this chip over one SPI, and they can cut
@@ -383,6 +416,8 @@ bool Mcp2518Fd::EnterMode(uint8_t mode) {
 
 bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
   ready = false;
+  TrailScope scope;
+  Trail(11);
 
   if (!Claim())
     return false;
@@ -412,6 +447,7 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
   Xfer(INSTR_RESET & 0xFF);
   Deselect();
   ShortDelay(20000);
+  Trail(12);
 
   /* No PLL: the 16 MHz crystal is the system clock. */
   WriteReg(REG_OSC, 0);
@@ -423,6 +459,7 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
     ShortDelay(1000);
   }
   oscSeen = osc;
+  Trail(13);
   deviceId = ReadReg(REG_DEVID) & 0xFF;
 
   /* Whether anyone is there is judged on OSC, the way the Linux driver does
@@ -448,6 +485,7 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
     return false;
   }
 
+  Trail(14);
   /* Written and read back. A device id of its own is not proof: a floating
    * input can read as anything. Only a register that gives back the value we
    * just put in it says there is really a chip on the other end of those four
@@ -461,15 +499,18 @@ bool Mcp2518Fd::Initialize(enum baudrates baudrate) {
   }
 
   WriteReg(REG_TSCON, 0); /* no timestamps, so receive objects stay 8 bytes */
+  Trail(15);
 
   /* One transmit FIFO and one receive FIFO, both with an 8 byte payload. */
   WriteReg(REG_FIFOCON(FIFO_TX),
            ((uint32_t)(FIFO_TX_DEPTH - 1) << 24) | (1 << 7));
   WriteReg(REG_FIFOCON(FIFO_RX), ((uint32_t)(FIFO_RX_DEPTH - 1) << 24));
 
+  Trail(16);
   ConfigureFiltersLocked();
   filtersDirty = false;
 
+  Trail(17);
   if (!EnterMode(MODE_NORMAL_20B)) {
     state = STATE_NOMODE;
     Release();
@@ -533,6 +574,9 @@ void Mcp2518Fd::Send(uint32_t canId, uint32_t data[2], uint8_t len) {
   if (!ready)
     return;
 
+  TrailScope scope;
+  Trail(31);
+
   if (!Claim())
     return; /* someone else is mid sequence; dropping beats corrupting */
 
@@ -575,6 +619,9 @@ void Mcp2518Fd::Poll() {
   if (!ready)
     return;
 
+  TrailScope scope;
+  Trail(21);
+
   /* A filter write that had to give way earlier is settled here first. */
   if (filtersDirty && Claim()) {
     ConfigureFiltersLocked();
@@ -598,12 +645,16 @@ void Mcp2518Fd::Poll() {
       Release();
       return;
     }
+    Trail(22);
 
     uint32_t ua = ReadReg(REG_FIFOUA(FIFO_RX));
+    Trail(23);
 
     ReadBuf(RAM_START + ua, obj, 16);
+    Trail(24);
     WriteByte(REG_FIFOCON(FIFO_RX) + FIFOCON_BYTE1, BYTE1_UINC);
     Release();
+    Trail(25);
 
     uint32_t id = obj[0] | (obj[1] << 8) | (obj[2] << 16) |
                   ((uint32_t)obj[3] << 24);
@@ -627,6 +678,7 @@ void Mcp2518Fd::Poll() {
     data[1] = obj[12] | (obj[13] << 8) | (obj[14] << 16) |
               ((uint32_t)obj[15] << 24);
 
+    Trail(26);
     HandleRx(id, data, dlc);
   }
 }

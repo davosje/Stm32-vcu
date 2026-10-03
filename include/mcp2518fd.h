@@ -78,8 +78,17 @@ public:
     STATE_RUN = 1,     //!< answered, read back what we wrote, normal mode
     STATE_NOCHIP = 2,  //!< nothing answered: wiring, power or chip select
     STATE_NOMODE = 3,  //!< it answered, but a register or a mode did not take
-    STATE_SPIFAULT = 4 //!< a transfer timed out; out of service until reset
+    STATE_SPIFAULT = 4, //!< a transfer timed out; out of service until reset
+    STATE_SKIPPED = 5  //!< not started: the last run ended in a watchdog reset
   };
+
+  /** Leave the chip alone this boot, and say so. */
+  void Skip() { state = STATE_SKIPPED; }
+
+  /** Where the previous run was inside this driver when it stopped, and clear
+   * it. 0 means it was not inside at all. The numbers are the Trail() calls in
+   * mcp2518fd.cpp. Call once, early in main, before the driver is used. */
+  static uint16_t TakeTrail();
 
   /** A fault outranks whatever Initialize last found, because it can come
    * later, in the middle of running. */
