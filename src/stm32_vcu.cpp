@@ -1424,6 +1424,9 @@ int main(void) {
   usart2_setup(); // TOYOTA HYBRID INVERTER INTERFACE
   nvic_setup();
   parm_load();
+  /* A bench test value, never a setting: see CpSpoofOutput. Saved or not, it
+   * starts at zero. */
+  Param::SetInt(Param::CpTestDuty, 0);
   spi2_setup();
   spi3_setup();
   tim3_setup(); // For general purpose PWM output

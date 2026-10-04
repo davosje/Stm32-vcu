@@ -26,7 +26,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-// Next param id (increase when adding new parameter!): 158
+// Next param id (increase when adding new parameter!): 159
 /*              category     name         unit       min     max     default id
  */
 #define PARAM_LIST                                                             \
@@ -92,6 +92,7 @@
   PARAM_ENTRY(CAT_CONTACT, errlights, ERRLIGHTS, 0, 255, 0, 34)                \
   PARAM_ENTRY(CAT_COMM, CAN3Speed, CAN3SPD, 0, 2, 0, 77)                       \
   PARAM_ENTRY(CAT_COMM, CANFDSpeed, CANFDSPD, 0, 5, 0, 157)                    \
+  PARAM_ENTRY(CAT_TEST, CpTestDuty, "%", 0, 100, 0, 158)                    \
   PARAM_ENTRY(CAT_CHARGER, BattCap, "kWh", 0.1, 250, 22, 38)                   \
   PARAM_ENTRY(CAT_CHARGER, Voltspnt, "V", 0, 1000, 395, 40)                    \
   PARAM_ENTRY(CAT_CHARGER, Pwrspnt, "W", 0, 12000, 1500, 41)                   \

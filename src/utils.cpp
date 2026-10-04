@@ -621,8 +621,17 @@ void ProcessCruiseControlButtons() {
 
 void CpSpoofOutput() {
   uint16_t CpVal = 0;
+  int testDuty = Param::GetInt(Param::CpTestDuty);
 
-  if (Param::GetInt(Param::interface) == ChargeInterfaces::i3LIM ||
+  if (testDuty > 0) {
+    /* A pilot of our own choosing, for the bench: there is no charge station
+     * behind it, so PilotLim stays 0 and the branch below would put out
+     * nothing. The duty goes straight to the output, in percent. CpTestDuty
+     * is cleared at every boot (see main), so a value left behind after a
+     * test can never feed a charger in the van a pilot nobody sent. */
+    Param::SetInt(Param::CP_PWM, testDuty);
+    CpVal = testDuty * 40;
+  } else if (Param::GetInt(Param::interface) == ChargeInterfaces::i3LIM ||
       Param::GetInt(Param::interface) == ChargeInterfaces::CPC ||
       Param::GetInt(Param::interface) == ChargeInterfaces::Foccci) {
     CpVal = float(Param::GetInt(Param::PilotLim) * 1.6667);
