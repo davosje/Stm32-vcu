@@ -25,15 +25,51 @@
 // #include "spi1_master.h"
 // #include "spi1_types.h"
 #include "MCP2515.h"
+#include <libopencm3/cm3/nvic.h>
 // #include "pin_manager.h"
 
+/* SPI2 is shared with the MCP2518FD of the CAN-FD bus, whose driver polls its
+ * chip from the 1 ms task. A transfer started here in the main loop - and
+ * that is where CANSPI_Initialize runs whenever CAN3Speed is set - must not be
+ * cut in half by that poll: both chips would get half a command, and the
+ * spi_xfer here would wait for a byte the other side already took. The main
+ * loop then never comes back, and with it the terminal and the web interface,
+ * while the rest of the board runs on. Seen on the bench on 2026-10-04, on
+ * every attempt to load a parameter file: that sends every parameter, so
+ * CAN3Speed too.
+ *
+ * So for the length of one transaction the same two interrupts are held off
+ * that Mcp2518Fd::Select holds off, and put back as they were found - this
+ * also runs inside the EXTI15 interrupt itself and inside the 1 ms task. One
+ * transaction is a few bytes at 1.1 MHz, so a scheduler tick comes a few tens
+ * of microseconds late at worst. */
+static bool csHeld = false;
+static bool csTim4Was = false;
+static bool csExtiWas = false;
+
+static inline void CsLow() {
+  csTim4Was = nvic_get_irq_enabled(NVIC_TIM4_IRQ) != 0;
+  csExtiWas = nvic_get_irq_enabled(NVIC_EXTI15_10_IRQ) != 0;
+  nvic_disable_irq(NVIC_TIM4_IRQ);
+  nvic_disable_irq(NVIC_EXTI15_10_IRQ);
+  csHeld = true;
+  DigIo::mcp_cs.Clear();
+}
+
+static inline void CsHigh() {
+  DigIo::mcp_cs.Set();
+  if (!csHeld)
+    return;
+  csHeld = false;
+  if (csExtiWas)
+    nvic_enable_irq(NVIC_EXTI15_10_IRQ);
+  if (csTim4Was)
+    nvic_enable_irq(NVIC_TIM4_IRQ);
+}
+
 // Defines for chip select
-#define MCP2515_CS_HIGH()                                                      \
-  DigIo::mcp_cs.Set();                                                         \
-  ;
-#define MCP2515_CS_LOW()                                                       \
-  DigIo::mcp_cs.Clear();                                                       \
-  ;
+#define MCP2515_CS_HIGH() CsHigh();
+#define MCP2515_CS_LOW() CsLow();
 #define SPI_CAN SPI2
 #define SPI_TIMEOUT 10
 

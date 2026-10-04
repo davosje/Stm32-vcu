@@ -250,12 +250,11 @@ void Mcp2518Fd::Release() { busy = false; }
  * arrives that much late, and CAN3 keeps its frame, because at 500 kbit one
  * takes 230 us and the MCP25625 buffers two.
  *
- * What this does not cover is the other direction: CANSPI_Initialize runs in
- * the main loop when CAN3Speed changes, and our Poll in the 1 ms task would
- * cut through that. It is a race that was already there before this driver -
- * the heater sends from the same task - and closing it means putting the same
- * two lines around the chip select of MCP2515.cpp. That is shared code, so it
- * deserves its own commit.
+ * The other direction - CANSPI_Initialize in the main loop when CAN3Speed is
+ * set, with our Poll cutting through it - is closed in MCP2515.cpp, by the
+ * same two interrupts held off around its chip select. It was left open here
+ * at first, and on 2026-10-04 it hung the main loop on every attempt to load
+ * a parameter file.
  */
 void Mcp2518Fd::Select() {
   irqTim4Was = nvic_get_irq_enabled(NVIC_TIM4_IRQ) != 0;
