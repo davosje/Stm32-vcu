@@ -95,10 +95,26 @@ static inline bool RegInvalid(uint32_t value) {
 #define OBJ_IDE (1 << 4)
 #define OBJ_RTR (1 << 5)
 
-/* How many frames one Poll() may take off the chip. A 500 kbit bus cannot
- * deliver more than about four frames per millisecond, so eight is headroom
- * without ever hogging the 1 ms task. */
-#define POLL_BUDGET 8
+/* How many frames one Poll() may take off the chip in one tick.
+ *
+ * The limit is not the bus but the SPI. At the divider spi2_setup picks
+ * (1.1 MHz) one frame costs about 235 us: status, user address, sixteen bytes
+ * and the queue advance. The first version allowed eight, reasoning from what
+ * a 500 kbit bus can deliver, and that is 1.9 ms in a 1 ms task. On the bench
+ * on 2026-10-04 the MG charger's six frames, sent back to back, did exactly
+ * that: cpuload stood at 238 %, which is one 1 ms run that took 2.38 ms.
+ *
+ * And an overrun costs more than the overrun. Stm32Scheduler clears a task's
+ * compare flag after the task returns, so a run that outlasts its period
+ * misses the next match and waits for the 16 bit counter to come round, 655
+ * ms later - by which time the FIFO is full again and the next run overruns
+ * too. The 1 ms task ends up running about once and a half per second.
+ *
+ * Two frames is 0.5 ms at worst and still drains 2000 frames a second, far
+ * above what this bus will carry. A bus that delivers more loses frames out of
+ * the FIFO instead of the timing of the 1 ms task, and that is the right way
+ * round. */
+#define POLL_BUDGET 2
 
 /* The crystal at X3, read off the package: YXC 16.000. Everything about bit
  * timing hangs on this number.
