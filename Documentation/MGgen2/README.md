@@ -13,8 +13,10 @@ one per bus:
 against captures of a real car (`test/test_mggen2.cpp`) and the state machine
 against a fake bus (`test/test_mggen2charger.cpp`). On the bench, on 12 V only,
 `MGgen2Charger` has run against a real unit for minutes on end with every frame
-acknowledged (below). Charging itself is untested: that needs an EVSE on the
-pilot.
+acknowledged (below), first from a Linux host and since 2026-10-04 on a
+ZombieVerter V1.3 itself, where the unit also took a pilot from the board's CP
+spoof output. Charging itself is untested: the unit has not yet given its start
+signal on the bench.
 
 ## Settings
 
@@ -46,7 +48,8 @@ Neither is optional, and neither is a CAN message.
   current is the same either way (0.745 A awake, 0.74 A quiet at 12.5 V), so it
   does not power down; it just stops sending. On the bench 12 V through 1.8 kΩ
   was enough. In a conversion the VCU has to hold this pin high whenever the
-  charger must answer.
+  charger must answer. Note that the `OBCEnable` output function does not do
+  this for these drivers: only `extCharger.cpp` (`EXT_DIGI`) drives it.
 - **47–220 kΩ across B2 and D2** when no charge port is wired. That is the
   charge port's NTC (about 100 kΩ at room temperature). Without it the unit
   flags a missing sensor in `0x3B7` D3 bit `0x40`.
@@ -175,10 +178,66 @@ The captures are next to this file, in `candump -L` format at 500 kbit/s:
 | [bench-2026-09-16-hybrid-awake.log](bench-2026-09-16-hybrid-awake.log) | D3 fed: the charger and `MGgen2Charger` talking together |
 | [bench-2026-09-16-pt.log](bench-2026-09-16-pt.log) | the PT bus, listening only |
 
+## A pilot from the ZombieVerter (2026-10-04)
+
+The same bench, with `MGgen2Charger` and `MGgen2DCDC` now running on a
+ZombieVerter V1.3 instead of the Linux harness. Both charger buses went to the
+board's CAN-FD channel one at a time; in a car they need separate buses (see
+Settings). Still no mains, no high voltage.
+
+**The pilot.** With `PWM1Func` = `CpSpoof`, PWM1 (main connector pin 7, driven
+by a FAN3122 from the fused 12 V) puts out a fixed 1 kHz square, 0 to +12 V.
+`CpSpoofOutput()` normally takes the duty from `PilotLim`, which stays 0 without
+an EVSE, so this branch adds `CpTestDuty` (percent, category Testing): above 0
+it goes straight to the output, and it is cleared at every boot. Wiring: PWM1
+through 900 Ω (two 1.8 kΩ in parallel) to A3, and 660 Ω from B3 (CC) to ground,
+as a 20 A cable.
+
+| | |
+|---|---|
+| A 0/+12 V pilot | accepted: no −12 V needed |
+| Measured duty | reported in `0x33B` D1 bits 0–6. A step settles within a second, over 5 to 9 frames |
+| Accuracy | stepping 27 → 10 → 53 → 80 → 5 → 27 %, every end value exact. One reading at 96 % gave 95 |
+| `PilotLim` | per IEC 61851 in every band: 10 % 6 A, 27 % 16.2 A, 53 % 31.8 A, 95 % 77.5 A |
+| 5 % | reported as `05`. `PilotLim` is left as it was, since the driver only takes it over for a valid AC pilot |
+| Start signal | **not given.** `0x33B` D1 bit 7 stays low on a pilot alone, also when the pilot is switched off and on again, so the driver never asks for charge mode. It probably also wants mains; not tested |
+| CC | B3 had 660 Ω to ground throughout. Whether the unit needs it is not known |
+
+Two traps found on the way:
+
+- **With `interface` = i3LIM the pilot keeps itself alive.** `CpSpoofOutput()`
+  then takes the duty from `PilotLim`, and `MGgen2Charger` writes `PilotLim`
+  from the duty it measures, which is our own. Setting `CpTestDuty` back to 0
+  leaves the output running at the last measured value; only `PWM1Func` = 0
+  stops it. Using CP spoof with this driver in a car needs a single source for
+  `PilotLim`.
+- **`OBCEnable` does not drive D3**, as noted above. Driving the wake wire from
+  the VCU needs a change in `MGgen2Charger`.
+
+**Sleep and wake.** With D3 pulled the unit fell silent, and the driver went to
+`Asleep` and sent the sleep set (`0x29C` `28 FF 83 FF 00 FF FF FF`, `0x33F`
+`7F FF 00 FF 28 03 FF 00`). With D3 back, the charger's first frame was
+`0x33B`, followed by 7 × 100 ms of the wake set (`0x33F`
+`00 00 00 00 28 00 00 00`) and then standby (`0x33F` D8 = `40`). Bus error
+counters 0.
+
+**The PT bus.** `MGgen2DCDC` reads `0x39F` into `U12V`: D2 = `05`, 0.625 V,
+so nothing, as expected without high voltage. `I12V` 0.
+
+| File | What is in it |
+|---|---|
+| [bench-2026-10-04-zombie-pilot-steps.log](bench-2026-10-04-zombie-pilot-steps.log) | the pilot stepped 27 → 10 → 53 → 80 → 5 → 27 %, about 6 s each, the charger and the driver on one bus |
+| [bench-2026-10-04-zombie-pilot-no-start.log](bench-2026-10-04-zombie-pilot-no-start.log) | the pilot switched off and on again: the new duty arrives, bit 7 stays low |
+| [bench-2026-10-04-zombie-wake.log](bench-2026-10-04-zombie-wake.log) | D3 reconnected: sleep set, the charger's first frame, wake set, standby (5 s before to 15 s after) |
+| [bench-2026-10-04-zombie-pt.log](bench-2026-10-04-zombie-pt.log) | the PT bus on the ZombieVerter, 4 s, relative time stamps |
+
 ## Not proven yet
 
-1. Charging: everything from the pilot onwards. The unit idles happily, but it
-   has never been asked to deliver current.
+1. Charging: everything from the start signal onwards. The unit reads a pilot
+   (above) but has not given its start signal on the bench, and has never been
+   asked to deliver current. Whether it follows a lower pilot than the EVSE
+   allows, which is how a VCU could limit it, is only proven for the duty it
+   reports, not yet for the current it draws.
 2. `0x297` D5:D6 = `FFFF` while charging. The car sends a value there that
    has not been decoded; does the charger accept `FFFF`?
 3. The stop request, `0x297` D1 bit `0x20`: seen once, in one capture.
