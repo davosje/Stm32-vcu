@@ -237,7 +237,8 @@ so nothing, as expected without high voltage. `I12V` 0.
 ## The current request is obeyed (2026-10-18)
 
 Two captures of a car charging (SavvyCAN, both buses), from Alibro on the
-openinverter forum, labelled MG5, so most
+openinverter forum (topic "MG5 / MG ZS Equalisation charge CAN logs", p95045,
+recorded with an Arduino Due on both buses), labelled MG5, so most
 likely the 6.6 kW unit; the frames are the same as on this one. Towards the
 end of the charge the car lowers its request in `0x29C` D3:D4 while the pilot
 stays at 53 %, and the DC current in `0x33D` D7 follows it for twenty minutes:
