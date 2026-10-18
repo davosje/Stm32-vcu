@@ -236,7 +236,9 @@ so nothing, as expected without high voltage. `I12V` 0.
 
 ## The current request is obeyed (2026-10-18)
 
-Two captures of a car charging (SavvyCAN, both buses), from Alibro on the
+One capture of a car charging (SavvyCAN, both buses; the two files in the thread
+turn out to be the same session, the shorter being the tail of the longer, so
+there is one session, not two), from Alibro on the
 openinverter forum (topic "MG5 / MG ZS Equalisation charge CAN logs", p95045,
 recorded with an Arduino Due on both buses), labelled MG5, so most
 likely the 6.6 kW unit; the frames are the same as on this one. Towards the
