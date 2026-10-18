@@ -66,10 +66,16 @@ namespace MGgen2Protocol {
 /* Several fields are 16 bits wide: 6 fixed bits on top of a 10 bit value. */
 const uint16_t VALUE_MASK = 0x3FF;
 
-/* 0x29C D3:D4, the DC current request. 20 counts per amp; 1022 is the highest
- * valid value, 1023 means invalid. The car ramps it by 100 counts (5 A) every
- * 100 ms. */
-const uint16_t CURRENT_COUNTS_PER_AMP = 20;
+/* 0x29C D3:D4, the DC current request. 50 counts per amp: in a capture of a
+ * car tapering off at the end of a charge, the DC current in 0x33D D7 is the
+ * request divided by 50 to within 0.1 A, for twenty minutes, while the pilot
+ * stays put (an MG5, 6.6 kW unit, same frames). The first reading of 20 per
+ * amp came from the start-up ramp alone, where the car always asks the most.
+ * 1022 is the highest valid value, 20.4 A, and the car uses it as "no limit":
+ * the unit then gives its own maximum, 16 A from the 6.6 kW unit and 23.9 A
+ * from the 11 kW one. 1023 means invalid. The car ramps by 100 counts (2 A)
+ * every 100 ms. */
+const uint16_t CURRENT_COUNTS_PER_AMP = 50;
 const uint16_t CURRENT_COUNTS_MAX = 1022;
 const uint16_t CURRENT_RAMP_STEP = 100;
 

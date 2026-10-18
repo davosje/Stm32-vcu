@@ -318,7 +318,9 @@ static void TestConversions() {
   ASSERT(VoltsToCounts(448.2f) == 0x578A);
   ASSERT(VoltsToCounts(445.8f) == 0x5712); // what the MG car sends
   ASSERT(VoltsToCounts(-1) == 0);
-  ASSERT(AmpsToCounts(2.0f) == 40);
+  ASSERT(AmpsToCounts(2.0f) == 100);
+  ASSERT(AmpsToCounts(15.5f) == 775); // capture: 777 counts went with 15.5 A DC
+  ASSERT(AmpsToCounts(20.44f) == CURRENT_COUNTS_MAX);
   ASSERT(AmpsToCounts(51.1f) == CURRENT_COUNTS_MAX);
   ASSERT(AmpsToCounts(80.0f) == CURRENT_COUNTS_MAX);
   ASSERT(AmpsToCounts(-3.0f) == 0);

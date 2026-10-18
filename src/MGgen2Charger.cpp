@@ -49,7 +49,9 @@ static const uint8_t SHUTDOWN_TICKS = 60;     // 6 s of HV_SHUTDOWN
 static const uint16_t REST_TICKS = 1000;      // 100 s of rest frames
 static const uint8_t TEMP_SETTLE_TICKS = 35;  // 3.5 s before 0x324 temps hold
 
-static const float MAX_DC_AMPS = 51.1f;    // what the car always asks for
+// 1022 counts, the highest request: the charger reads it as no limit and
+// gives its own maximum. A limit between this and that maximum cannot be asked.
+static const float MAX_DC_AMPS = 1022.0f / CURRENT_COUNTS_PER_AMP;
 static const float STOPPED_AMPS = 1.0f;    // below this, contactors may open
 static const float MIN_PACK_VOLTS = 50.0f; // no current without pack voltage
 

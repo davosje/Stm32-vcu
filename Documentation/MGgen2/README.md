@@ -29,8 +29,11 @@ signal on the bench.
 | `Voltspnt` | the pack's charge voltage limit | sent in steps of 0.02 V; the parameter itself has steps of 1/32 V |
 | `Pwrspnt` | e.g. 11000 W | the current request is never more than `Pwrspnt` / `udc`, and the default of 1500 W is under 4 A at 400 V |
 
-The DC current requested is the lowest of 51.1 A (what the car always asks),
-`Pwrspnt` / `udc`, and `BMS_ChargeLim` when a BMS reports one. The MG reads the
+The DC current requested is the lowest of 20.4 A, `Pwrspnt` / `udc`, and
+`BMS_ChargeLim` when a BMS reports one. The request in `0x29C` D3:D4 is 50 counts
+per amp (corrected 2026-10-18, see below); its top value, 1022, is read by the
+unit as "no limit", so a limit between 20.4 A and the unit's own maximum cannot
+be asked for. The MG reads the
 AC pilot itself (CP and CC on A3/B3), so the EVSE limits it further through the
 duty cycle, and a charge starts on the charger's own start signal (`0x33B`
 bit 7 with a valid duty), not on a charge interface.
@@ -230,6 +233,28 @@ so nothing, as expected without high voltage. `I12V` 0.
 | [bench-2026-10-04-zombie-pilot-no-start.log](bench-2026-10-04-zombie-pilot-no-start.log) | the pilot switched off and on again: the new duty arrives, bit 7 stays low |
 | [bench-2026-10-04-zombie-wake.log](bench-2026-10-04-zombie-wake.log) | D3 reconnected: sleep set, the charger's first frame, wake set, standby (5 s before to 15 s after) |
 | [bench-2026-10-04-zombie-pt.log](bench-2026-10-04-zombie-pt.log) | the PT bus on the ZombieVerter, 4 s, relative time stamps |
+
+## The current request is obeyed (2026-10-18)
+
+Two captures of a car charging (SavvyCAN, both buses), labelled MG5, so most
+likely the 6.6 kW unit; the frames are the same as on this one. Towards the
+end of the charge the car lowers its request in `0x29C` D3:D4 while the pilot
+stays at 53 %, and the DC current in `0x33D` D7 follows it for twenty minutes:
+
+| Request (raw) | DC current |
+|---|---|
+| 1022 | 16.0 A (the unit's maximum) |
+| 778 | 15.5 A |
+| 687 | 13.7 A |
+| 609 | 12.0 A |
+| 496 | 9.8 A |
+| 0 | 0.2 A |
+
+Every point is the raw value divided by 50, to within 0.1 A. So the scale is
+50 counts per amp, not 20 (the earlier reading came from the start-up ramp,
+where the car always asks the most), and the unit does limit its current to
+what is asked over CAN. 16 A at about 400 V is 6.4 kW, which also confirms the
+0.1 A scale of `0x33D` D7.
 
 ## Not proven yet
 

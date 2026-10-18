@@ -110,7 +110,7 @@ void Reset() {
   temp = TEMP_SETTLED;
   Param::SetInt(Param::opmode, MOD_OFF);
   Param::SetFloat(Param::Voltspnt, 448.2f);
-  Param::SetFloat(Param::Pwrspnt, 11000);
+  Param::SetFloat(Param::Pwrspnt, 6000);
   Param::SetFloat(Param::udc, 400);
   Param::SetFloat(Param::BMS_ChargeLim, 0);
 }
@@ -164,18 +164,18 @@ static void TestStartsOnTheStartSignalAndRampsLikeTheCar() {
   ASSERT(bus.Byte(0x297, 1) == 0x06);
   ASSERT(bus.Byte(0x33F, 7) == 0x41);
 
-  // 11 kW at 400 V is 27.5 A: 550 counts, never more than 100 per step
+  // 6 kW at 400 V is 15 A: 750 counts, never more than 100 per step
   int previous = 0;
   bool gentle = true;
   for (int i = 0; i < 10; i++) {
     int counts = RequestedCounts();
-    if (counts - previous > 100 || counts > 550)
+    if (counts - previous > 100 || counts > 750)
       gentle = false;
     previous = counts;
     Run(1);
   }
   ASSERT(gentle);
-  ASSERT(previous == 550);
+  ASSERT(previous == 750);
   // Voltspnt = 448.2 V. Parameters are fixed point in steps of 1/32 V, so it
   // is stored as 448.1875 V and sent as 0x5789 (448.18 V), not 0x578A: the
   // charger stops 0.02 V early, which is the safe side.
@@ -187,7 +187,7 @@ static void TestBmsLimitCapsTheRequest() {
   Reset();
   Param::SetFloat(Param::BMS_ChargeLim, 10);
   StartCharging();
-  ASSERT(RequestedCounts() == 200); // 10 A
+  ASSERT(RequestedCounts() == 500); // 10 A
 }
 
 static void TestHoldsChargeModeUntilTheCurrentIsGone() {
