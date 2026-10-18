@@ -72,8 +72,10 @@ const uint16_t VALUE_MASK = 0x3FF;
  * stays put (an MG5, 6.6 kW unit, same frames). The first reading of 20 per
  * amp came from the start-up ramp alone, where the car always asks the most.
  * 1022 is the highest valid value, 20.4 A, and the car uses it as "no limit":
- * the unit then gives its own maximum, 16 A from the 6.6 kW unit and 23.9 A
- * from the 11 kW one. 1023 means invalid. The car ramps by 100 counts (2 A)
+ * the request then does not limit, and the pilot sets the current: 16 A from
+ * the MG5 on a 53 % single-phase pilot, 23.9 A from the 11 kW unit on a 25 %
+ * three-phase one (Lars' captures, where the request is always 1022). 1023
+ * means invalid. The car ramps by 100 counts (2 A)
  * every 100 ms. */
 const uint16_t CURRENT_COUNTS_PER_AMP = 50;
 const uint16_t CURRENT_COUNTS_MAX = 1022;

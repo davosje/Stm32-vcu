@@ -32,8 +32,8 @@ signal on the bench.
 The DC current requested is the lowest of 20.4 A, `Pwrspnt` / `udc`, and
 `BMS_ChargeLim` when a BMS reports one. The request in `0x29C` D3:D4 is 50 counts
 per amp (corrected 2026-10-18, see below); its top value, 1022, is read by the
-unit as "no limit", so a limit between 20.4 A and the unit's own maximum cannot
-be asked for. The MG reads the
+unit as "no limit" (the pilot then sets the current), so a limit above 20.4 A
+cannot be asked for. The MG reads the
 AC pilot itself (CP and CC on A3/B3), so the EVSE limits it further through the
 duty cycle, and a charge starts on the charger's own start signal (`0x33B`
 bit 7 with a valid duty), not on a charge interface.
