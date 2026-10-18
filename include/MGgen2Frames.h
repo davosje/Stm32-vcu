@@ -68,8 +68,8 @@ const uint16_t VALUE_MASK = 0x3FF;
 
 /* 0x29C D3:D4, the DC current request. 50 counts per amp: in a capture of a
  * car tapering off at the end of a charge, the DC current in 0x33D D7 is the
- * request divided by 50 to within 0.1 A, for twenty minutes, while the pilot
- * stays put (an MG5, 6.6 kW unit, same frames). The first reading of 20 per
+ * request divided by 50, about 1 % under it, for a quarter of an hour (89 %
+ * of 179 samples within 0.2 A, 55 % within 0.1 A), while the pilot stays put (an MG5, 6.6 kW unit, same frames). The first reading of 20 per
  * amp came from the start-up ramp alone, where the car always asks the most.
  * 1022 is the highest valid value, 20.4 A, and the car uses it as "no limit":
  * the request then does not limit, and the pilot sets the current: 16 A from

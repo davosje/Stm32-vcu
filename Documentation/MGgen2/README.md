@@ -254,11 +254,16 @@ stays at 53 %, and the DC current in `0x33D` D7 follows it for twenty minutes:
 | 496 | 9.8 A |
 | 0 | 0.2 A |
 
-Every point is the raw value divided by 50, to within 0.1 A. So the scale is
-50 counts per amp, not 20 (the earlier reading came from the start-up ramp,
-where the car always asks the most), and the unit does limit its current to
-what is asked over CAN. 16 A at about 400 V is 6.4 kW, which also confirms the
-0.1 A scale of `0x33D` D7.
+Sampled every 5 s over the taper (179 points), the DC current is the raw value
+divided by 50 and then about 1 % lower (median ratio 0.993): 89 % of the points
+within 0.2 A, 55 % within 0.1 A, and the current never above the request. So
+the scale is 50 counts per amp, not 20 (the earlier reading came from the
+start-up ramp, where the car always asks the most). The strongest sign that the
+unit limits to the request, rather than the battery limiting it at the top of
+the charge: at about 4410 s the car briefly asks for 1022 again and the current
+goes from 14.0 to 15.9 A, then falls back with the request. That is one
+excursion in one session. 16 A at about 400 V is 6.4 kW, which fits the 0.1 A
+scale of `0x33D` D7 only roughly.
 
 ## Not proven yet
 
