@@ -25,8 +25,13 @@ class LeafBMS : public BMS {
 public:
   void SetCanInterface(CanHardware *can) override;
   void DecodeCAN(int id, uint8_t *data) override;
+  void Task100Ms() override;
 
 private:
+  // In 100 ms ticks. 0x1DC comes every 10 ms, so half a second is a lost BMS.
+  static const uint8_t LIMIT_TIMEOUT = 5;
+  uint8_t limitAge = LIMIT_TIMEOUT;
+
   bool isMessageCorrupt(uint8_t *data);
 };
 

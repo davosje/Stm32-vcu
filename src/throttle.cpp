@@ -359,6 +359,10 @@ void Throttle::IdcLimitCommand(float &finalSpnt, float idc) {
 
   idcmax = Param::GetFloat(Param::idcmax); // Made dynamic
   idcmin = Param::GetFloat(Param::idcmin);
+  if (Param::GetInt(Param::bmsregenlim)) {
+    idcmin = MAX(idcmin, BmsRegenLimit(Param::GetFloat(Param::BMS_MaxInput),
+                                       Param::GetFloat(Param::udc)));
+  }
 
   uint16_t DerateReason = Param::GetInt(Param::TorqDerate);
 
@@ -390,6 +394,14 @@ void Throttle::IdcLimitCommand(float &finalSpnt, float idc) {
   } else {
     finalSpnt = finalSpnt;
   }
+}
+
+// The regen current a BMS allows, as the negative amps idcmin works in. Without
+// a pack voltage there is no telling what that is, so no regen.
+float Throttle::BmsRegenLimit(float maxInputKw, float udc) {
+  if (udc <= 0)
+    return 0;
+  return -maxInputKw * 1000 / udc;
 }
 
 void Throttle::SpeedLimitCommand(float &finalSpnt, int speed) {

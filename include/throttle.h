@@ -34,6 +34,7 @@ public:
   static bool TemperatureDerate(float tmp, float tmpMax, float &finalSpnt);
   static void UdcLimitCommand(float &finalSpnt, float udc);
   static void IdcLimitCommand(float &finalSpnt, float idc);
+  static float BmsRegenLimit(float maxInputKw, float udc);
   static void SpeedLimitCommand(float &finalSpnt, int speed);
   static float RampThrottle(float finalSpnt);
   static int potmin[2];

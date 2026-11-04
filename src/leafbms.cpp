@@ -94,6 +94,7 @@ void LeafBMS::DecodeCAN(int id, uint8_t *data) {
     Param::SetFloat(Param::BMS_ChargeLim, chargelimit);
     Param::SetInt(Param::BMS_MaxInput, chglimit);
     Param::SetInt(Param::BMS_MaxOutput, dislimit);
+    limitAge = 0;
     break;
   }
   case 0x55B: {
@@ -174,6 +175,16 @@ void LeafBMS::DecodeCAN(int id, uint8_t *data) {
   default:
     break;
   }
+}
+
+// A limit that is no longer being sent is not a limit: bmsregenlim must not go
+// on trusting the last one if the BMS goes quiet.
+void LeafBMS::Task100Ms() {
+  BMS::Task100Ms();
+  if (limitAge < LIMIT_TIMEOUT)
+    limitAge++;
+  if (limitAge >= LIMIT_TIMEOUT)
+    Param::SetInt(Param::BMS_MaxInput, 0);
 }
 
 bool LeafBMS::isMessageCorrupt(uint8_t *data) {
