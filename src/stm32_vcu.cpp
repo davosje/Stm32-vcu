@@ -49,6 +49,7 @@
 #include "TeslaDCDC.h"
 #include "VWAirHeater.h"
 #include "VWCoolantHeater.h"
+#include "VWMebHeater.h"
 #include "V_Classic.h"
 #include "amperacharger.h"
 #include "amperaheater.h"
@@ -187,6 +188,7 @@ static E65_Lever E65GearLever;
 static JLR_G1 JLRG1shift;
 static JLR_G2 JLRG2shift;
 static vwCoolantHeater heaterCoolantVW;
+static vwMebHeater heaterMebVW;
 static mgCoolantHeater heaterCoolantMG;
 static vwAirHeater heaterAirVW;
 static NoVehicle VehicleNone;
@@ -1072,6 +1074,10 @@ static void UpdateHeater() {
   case HeatType::VWAir:
     selectedHeater = &heaterAirVW;
     heaterAirVW.SetLinInterface(lin);
+    break;
+  case HeatType::VWMeb:
+    selectedHeater = &heaterMebVW;
+    heaterMebVW.SetLinInterface(lin);
     break;
   case HeatType::MGCoolant:
     selectedHeater = &heaterCoolantMG;

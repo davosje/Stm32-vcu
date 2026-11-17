@@ -43,10 +43,15 @@ public:
   virtual void RunTest();
 };
 
+class VWMebHeaterTest : public IUnitTest {
+public:
+  virtual void RunTest();
+};
+
 #ifdef EXPORT_TESTLIST
-IUnitTest *testList[] = {new ThrottleTest(), new MGgen2Test(),
+IUnitTest *testList[] = {new ThrottleTest(),      new MGgen2Test(),
                          new MGgen2ChargerTest(), new Mcp2518FdTest(),
-                         NULL};
+                         new VWMebHeaterTest(),   NULL};
 #endif
 
 #endif // TEST_LIST_H_INCLUDED

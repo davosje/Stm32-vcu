@@ -6,7 +6,7 @@ CFLAGS    = -std=c99 -ggdb -I../include -I../libopeninv/include
 CPPFLAGS    = -ggdb -I../include -I../libopeninv/include -DMCP2518FD_HOSTTEST
 LDFLAGS     = -g
 BINARY		= test_vcu
-OBJS		= test_main.o my_string.o params.o throttle.o test_throttle.o MGgen2Frames.o test_mggen2.o canhardware.o MGgen2Charger.o test_mggen2charger.o mcp2518fd.o test_mcp2518fd.o leafbms.o
+OBJS		= test_main.o my_string.o params.o throttle.o test_throttle.o MGgen2Frames.o test_mggen2.o canhardware.o MGgen2Charger.o test_mggen2charger.o mcp2518fd.o test_mcp2518fd.o leafbms.o VWMebHeaterFrames.o test_vwmebheater.o
 VPATH = ../src ../libopeninv/src
 
 all: $(BINARY)

@@ -26,7 +26,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-// Next param id (increase when adding new parameter!): 159
+// Next param id (increase when adding new parameter!): 161
 /*              category     name         unit       min     max     default id
  */
 #define PARAM_LIST                                                             \
@@ -113,13 +113,14 @@
   PARAM_ENTRY(CAT_BMS, BMS_VmaxLimit, "V", 0, 10, 4.2, 93)                     \
   PARAM_ENTRY(CAT_BMS, BMS_TminLimit, "°C", -100, 100, 5, 94)                  \
   PARAM_ENTRY(CAT_BMS, BMS_TmaxLimit, "°C", -100, 100, 50, 95)                 \
-  PARAM_ENTRY(CAT_HEATER, Heater, HTTYPE, 0, 6, 0, 57)                         \
+  PARAM_ENTRY(CAT_HEATER, Heater, HTTYPE, 0, 7, 0, 57)                         \
   PARAM_ENTRY(CAT_HEATER, Control, HTCTRL, 0, 2, 0, 58)                        \
   PARAM_ENTRY(CAT_HEATER, HeatPwr, "W", 0, 6500, 0, 59)                        \
   PARAM_ENTRY(CAT_HEATER, HeatPercnt, "%", 0, 100, 0, 124)                     \
   PARAM_ENTRY(CAT_HEATER, HeatPotDir, ABOVEBELOW, 0, 4, 0, 150)                \
   PARAM_ENTRY(CAT_HEATER, HeatPotOn, "dig", 0, 4095, 0, 151)                   \
   PARAM_ENTRY(CAT_HEATER, HeatPotFull, "dig", 0, 4095, 0, 152)                 \
+  PARAM_ENTRY(CAT_HEATER, MebHtBits, MEBHTBITS, 0, 1, 0, 160)                  \
   PARAM_ENTRY(CAT_CLOCK, Set_Day, DOW, 0, 6, 0, 46)                            \
   PARAM_ENTRY(CAT_CLOCK, Set_Hour, "Hours", 0, 23, 0, 47)                      \
   PARAM_ENTRY(CAT_CLOCK, Set_Min, "Mins", 0, 59, 0, 48)                        \
@@ -259,6 +260,9 @@
   VALUE_ENTRY(tmpheater, "°C", 2096)                                           \
   VALUE_ENTRY(udcheater, "V", 2097)                                            \
   VALUE_ENTRY(powerheater, "W", 2098)                                          \
+  VALUE_ENTRY(tmpheatin, "°C", 2129)                                           \
+  VALUE_ENTRY(tmpheatout, "°C", 2130)                                          \
+  VALUE_ENTRY(u12heater, "V", 2131)                                            \
   VALUE_ENTRY(VehLockSt, ONOFF, 2100)                                          \
   VALUE_ENTRY(uptime, "sec", 2113)                                             \
   VALUE_ENTRY(MG1Torque, "", 2114)                                             \
@@ -277,7 +281,7 @@
   VALUE_ENTRY(CANFDTrail, "", 2127)                                            \
   VALUE_ENTRY(ResetCause, RESETCAUSE, 2128)
 
-// Next value Id: 2129
+// Next value Id: 2132
 
 // Dead params
 /*
@@ -346,8 +350,10 @@
   "1=Charging, 2=Malfunction, 4=ConnLock, 8=BatIncomp, 16=SystemMalfunction, " \
   "32=Stop"
 #define HTTYPE                                                                 \
-  "0=None, 1=Ampera, 2=VWCoolant, 3=VWAir, 4=OutlanderCan, 5=MGCoolant, 6=PWM"
+  "0=None, 1=Ampera, 2=VWCoolant, 3=VWAir, 4=OutlanderCan, 5=MGCoolant, 6=PWM, " \
+  "7=VWMeb"
 #define HTCTRL "0=Disable, 1=Enable, 2=Timer"
+#define MEBHTBITS "0=LDF, 1=Notes"
 #define CHGMODS                                                                \
   "0=Off, 1=EXT_DIGI, 2=Volt_Ampera, 3=Leaf_PDM, 4=TeslaOI, 5=Out_lander, "    \
   "6=Elcon, 7=MGgen2"
@@ -452,7 +458,8 @@ enum HeatType {
   VWAir = 3,
   OutlanderHeater = 4,
   MGCoolant = 5,
-  PWM = 6
+  PWM = 6,
+  VWMeb = 7
 };
 
 enum BMSModes {
