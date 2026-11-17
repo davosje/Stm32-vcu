@@ -29,7 +29,8 @@ static const uint8_t SILENT_LIMIT = 20;
 void vwMebHeater::SetLinInterface(LinBus *l) {
   lin = l;
   DigIo::lin_wake.Clear(); // not used on the TJA1027
-  DigIo::lin_nslp.Set();   // transceiver out of sleep
+  DigIo::lin_nslp.Set();   // SLP_N high: normal mode. The V1.3 board carries a
+                           // TJA1020 ("A1020/C"), which works the same way.
 }
 
 void vwMebHeater::DeInit() {
